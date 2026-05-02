@@ -1,0 +1,6 @@
+{
+  "name": "Customer Connect CRM",
+  "description": "Mobile CRM for automated WhatsApp reminders, birthday wishes, and purchase history tracking to boost customer retention.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["CRM", "Customer Management", "WhatsApp Outreach"]
+}
