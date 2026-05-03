@@ -1,12 +1,13 @@
 import { useState, useEffect } from 'react';
-import { Users, DollarSign, Gift, ArrowUpRight, Plus, History as HistoryIcon, MessageSquareText } from 'lucide-react';
+import { Users, IndianRupee, Gift, ArrowUpRight, Plus, History as HistoryIcon, MessageSquareText } from 'lucide-react';
 import { storage } from '../services/storage';
 import { Customer, Purchase, Stats } from '../types';
-import { formatCurrency, getWhatsAppLink, cn } from '../lib/utils';
+import { formatCurrency, getWhatsAppLink, getWhatsAppAppLink, cn } from '../lib/utils';
 import { format, addDays, getMonth, getDate } from 'date-fns';
 import { Link } from 'react-router-dom';
 
 export default function Dashboard() {
+  const settings = storage.getSettings();
   const [stats, setStats] = useState<Stats>({
     totalCustomers: 0,
     totalRevenue: 0,
@@ -48,19 +49,20 @@ export default function Dashboard() {
   return (
     <div className="space-y-6">
       <section>
-        <h2 className="text-2xl font-bold tracking-tight mb-4">Overview</h2>
+        <h2 className="text-2xl font-bold tracking-tight mb-1">Overview</h2>
+        <p className="text-[10px] text-pink-500 font-bold uppercase tracking-widest mb-4">{settings.slogan}</p>
         <div className="grid grid-cols-2 gap-3">
           <StatCard 
             label="Total Customers" 
             value={stats.totalCustomers} 
             icon={Users} 
-            color="bg-blue-50 text-blue-600" 
+            color="bg-pink-50 text-pink-600" 
           />
           <StatCard 
             label="Revenue" 
             value={formatCurrency(stats.totalRevenue)} 
-            icon={DollarSign} 
-            color="bg-green-50 text-green-600" 
+            icon={IndianRupee} 
+            color="bg-rose-50 text-rose-600" 
           />
           <StatCard 
             label="Monthly Sales" 
@@ -72,7 +74,7 @@ export default function Dashboard() {
             label="Birthdays" 
             value={stats.upcomingBirthdays} 
             icon={Gift} 
-            color="bg-pink-50 text-pink-600" 
+            color="bg-pink-50 text-pink-500" 
           />
         </div>
       </section>
@@ -90,10 +92,10 @@ export default function Dashboard() {
                   <p className="text-xs text-gray-400">{customer.birthday ? format(new Date(customer.birthday), 'MMM dd') : ''}</p>
                 </div>
                 <a
-                  href={getWhatsAppLink(customer.phone, `Happy Birthday ${customer.name}! 🎉 Hope you have a wonderful day.`)}
+                  href={getWhatsAppAppLink(customer.phone, `Happy Birthday ${customer.name}! 🎉 ✨ Celebrating you today at ${settings.shopName}. Hope you have a wonderful day.`)}
                   target="_blank"
                   rel="no-referrer"
-                  className="p-2 bg-green-500 text-white rounded-full hover:bg-green-600 transition-colors"
+                  className="p-2 bg-pink-500 text-white rounded-full hover:bg-pink-600 transition-colors shadow-lg shadow-pink-100"
                 >
                   <MessageSquareText size={16} />
                 </a>
@@ -106,17 +108,17 @@ export default function Dashboard() {
       <section>
         <h3 className="font-semibold text-gray-700 mb-3">Quick Actions</h3>
         <div className="grid grid-cols-2 gap-3">
-          <Link to="/customers" className="flex flex-col items-center justify-center p-4 bg-white rounded-2xl border border-gray-100 hover:border-blue-200 transition-all group">
-            <div className="p-3 bg-blue-50 rounded-xl text-blue-600 mb-2 group-hover:scale-110 transition-transform">
+          <Link to="/customers" className="flex flex-col items-center justify-center p-4 bg-white rounded-2xl border border-gray-100 hover:border-pink-200 transition-all group">
+            <div className="p-3 bg-pink-50 rounded-xl text-pink-600 mb-2 group-hover:scale-110 transition-transform">
               <Plus size={24} />
             </div>
-            <span className="text-xs font-semibold text-gray-500 uppercase tracking-wider">New Customer</span>
+            <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">New Customer</span>
           </Link>
-          <Link to="/history" className="flex flex-col items-center justify-center p-4 bg-white rounded-2xl border border-gray-100 hover:border-blue-200 transition-all group">
-            <div className="p-3 bg-orange-50 rounded-xl text-orange-600 mb-2 group-hover:scale-110 transition-transform">
+          <Link to="/history" className="flex flex-col items-center justify-center p-4 bg-white rounded-2xl border border-gray-100 hover:border-pink-200 transition-all group">
+            <div className="p-3 bg-rose-50 rounded-xl text-rose-600 mb-2 group-hover:scale-110 transition-transform">
               <HistoryIcon size={24} />
             </div>
-            <span className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Add Sale</span>
+            <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">All Sales</span>
           </Link>
         </div>
       </section>

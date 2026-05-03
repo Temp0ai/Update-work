@@ -2,7 +2,6 @@ export interface Customer {
   id: string;
   name: string;
   phone: string;
-  email?: string;
   birthday?: string; // YYYY-MM-DD
   notes?: string;
   createdAt: number;
@@ -32,3 +31,10 @@ export type Stats = {
   purchasesThisMonth: number;
   upcomingBirthdays: number;
 };
+
+export interface BusinessSettings {
+  shopName: string;
+  slogan: string;
+  ownerName: string;
+  ownerPhone: string;
+}

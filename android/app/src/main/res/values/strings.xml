@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Meraki CRM</string>
+    <string name="title_activity_main">Meraki CRM</string>
+    <string name="package_name">com.meraki.crm</string>
+    <string name="custom_url_scheme">com.meraki.crm</string>
+</resources>

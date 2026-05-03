@@ -3,6 +3,13 @@ import {createRoot} from 'react-dom/client';
 import App from './App.tsx';
 import './index.css';
 
+// Register Service Worker for PWA
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('/sw.js').catch(err => console.log('SW registration failed: ', err));
+  });
+}
+
 // Inject sample data if empty
 const STORAGE_KEYS = {
   CUSTOMERS: 'crm_customers',
@@ -11,15 +18,15 @@ const STORAGE_KEYS = {
 
 if (!localStorage.getItem(STORAGE_KEYS.CUSTOMERS)) {
   const sampleCustomers = [
-    { id: '1', name: 'John Doe', phone: '1234567890', birthday: '1990-05-02', createdAt: Date.now() },
-    { id: '2', name: 'Jane Smith', phone: '0987654321', birthday: '1992-08-15', createdAt: Date.now() },
-    { id: '3', name: 'Sam Wilson', phone: '5550001111', createdAt: Date.now() },
+    { id: '1', name: 'Sophia Chen', phone: '1234567890', birthday: '1995-05-02', notes: 'Loves silk fabrics and floral prints.', createdAt: Date.now() },
+    { id: '2', name: 'Emma Watson', phone: '0987654321', birthday: '1992-08-15', notes: 'Prefers minimalist chic, high-waisted trousers.', createdAt: Date.now() },
+    { id: '3', name: 'Olivia Rose', phone: '5550001111', notes: 'Occasion wear, weddings.', createdAt: Date.now() },
   ];
   localStorage.setItem(STORAGE_KEYS.CUSTOMERS, JSON.stringify(sampleCustomers));
   
   const samplePurchases = [
-    { id: 'p1', customerId: '1', amount: 150.00, date: Date.now() - 86400000 * 2, items: [], notes: 'Monthly subscription' },
-    { id: 'p2', customerId: '2', amount: 45.00, date: Date.now() - 86400000 * 45, items: [], notes: 'Shoes' },
+    { id: 'p1', customerId: '1', amount: 8500, date: Date.now() - 86400000 * 5, items: [], notes: 'Silk Summer Dress - Blue' },
+    { id: 'p2', customerId: '2', amount: 4200, date: Date.now() - 86400000 * 45, items: [], notes: 'Cashmere Scarf' },
   ];
   localStorage.setItem(STORAGE_KEYS.PURCHASES, JSON.stringify(samplePurchases));
 }
