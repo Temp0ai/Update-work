@@ -4,7 +4,7 @@ import { storage } from "./storage";
 
 function getAI(): GoogleGenAI {
   const settings = storage.getSettings();
-  const apiKey = settings.geminiApiKey || "";
+  const apiKey = settings.geminiApiKey || import.meta.env.VITE_GEMINI_API_KEY || "";
   if (!apiKey) {
     throw new Error("Gemini API key not set. Please add it in Settings.");
   }
@@ -63,7 +63,7 @@ export async function generatePersonalizedMessage(
   try {
     const ai = getAI();
     const response = await ai.models.generateContent({
-      model: "gemini-3-flash-preview",
+      model: "gemini-2.5-flash",
       contents: prompt,
     });
     return response.text || "Hello! Just checking in with you.";
@@ -108,7 +108,7 @@ export async function analyzeImageForInstagram(
   try {
     const ai = getAI();
     const response = await ai.models.generateContent({
-      model: "gemini-3-flash-preview",
+      model: "gemini-2.5-flash",
       contents: [
         {
           parts: [
