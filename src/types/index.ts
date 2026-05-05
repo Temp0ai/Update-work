@@ -37,4 +37,5 @@ export interface BusinessSettings {
   slogan: string;
   ownerName: string;
   ownerPhone: string;
+  geminiApiKey?: string;
 }

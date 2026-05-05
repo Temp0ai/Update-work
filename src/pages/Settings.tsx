@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { storage } from '../services/storage';
 import { BusinessSettings } from '../types';
-import { Store, User, Phone, Save, CheckCircle2, Search, Trash2, X } from 'lucide-react';
+import { Store, User, Phone, Save, CheckCircle2, Search, Trash2, X, Key, Eye, EyeOff } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { cn } from '../lib/utils';
 import { Customer } from '../types';
@@ -16,6 +16,7 @@ export default function Settings() {
   const [showDeletionSection, setShowDeletionSection] = useState(false);
 
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [showApiKey, setShowApiKey] = useState(false);
 
   useEffect(() => {
     setCustomers(storage.getCustomers());
@@ -116,13 +117,38 @@ export default function Settings() {
             <label className="flex items-center text-xs font-bold text-gray-400 uppercase tracking-widest px-1">
               <Phone size={14} className="mr-2" /> Contact Number
             </label>
-            <input 
-              type="tel" 
+            <input
+              type="tel"
               required
               value={settings.ownerPhone}
               onChange={e => setSettings({...settings, ownerPhone: e.target.value})}
               className="w-full px-4 py-3 bg-gray-50 border border-transparent focus:border-pink-200 focus:bg-white rounded-xl transition-all outline-none"
             />
+          </div>
+
+          <div className="pt-2 border-t border-gray-50"></div>
+
+          <div className="space-y-2">
+            <label className="flex items-center text-xs font-bold text-gray-400 uppercase tracking-widest px-1">
+              <Key size={14} className="mr-2" /> Gemini API Key
+            </label>
+            <div className="relative">
+              <input
+                type={showApiKey ? "text" : "password"}
+                value={settings.geminiApiKey || ''}
+                onChange={e => setSettings({...settings, geminiApiKey: e.target.value})}
+                placeholder="Enter your Gemini API key"
+                className="w-full px-4 py-3 pr-12 bg-gray-50 border border-transparent focus:border-pink-200 focus:bg-white rounded-xl transition-all outline-none text-sm font-mono"
+              />
+              <button
+                type="button"
+                onClick={() => setShowApiKey(!showApiKey)}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+              >
+                {showApiKey ? <EyeOff size={16} /> : <Eye size={16} />}
+              </button>
+            </div>
+            <p className="text-[10px] text-gray-400 px-1">Required for AI Content Studio and personalized messages. Get yours at <span className="text-pink-500">aistudio.google.com</span></p>
           </div>
 
           <div className="pt-4">

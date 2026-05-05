@@ -2,7 +2,14 @@ import { GoogleGenAI } from "@google/genai";
 import { Customer, Purchase } from "../types";
 import { storage } from "./storage";
 
-const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY! });
+function getAI(): GoogleGenAI {
+  const settings = storage.getSettings();
+  const apiKey = settings.geminiApiKey || "";
+  if (!apiKey) {
+    throw new Error("Gemini API key not set. Please add it in Settings.");
+  }
+  return new GoogleGenAI({ apiKey });
+}
 
 export async function generatePersonalizedMessage(
   customer: Customer,
@@ -54,6 +61,7 @@ export async function generatePersonalizedMessage(
   `;
 
   try {
+    const ai = getAI();
     const response = await ai.models.generateContent({
       model: "gemini-3-flash-preview",
       contents: prompt,
@@ -98,6 +106,7 @@ export async function analyzeImageForInstagram(
   `;
 
   try {
+    const ai = getAI();
     const response = await ai.models.generateContent({
       model: "gemini-3-flash-preview",
       contents: [

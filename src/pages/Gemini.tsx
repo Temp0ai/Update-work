@@ -1,5 +1,5 @@
 import React, { useState, useRef } from 'react';
-import { Camera, Upload, Sparkles, Instagram, Copy, Check, Hash, Tag, Loader2, RefreshCw, Send, ArrowRight } from 'lucide-react';
+import { Camera, Upload, Sparkles, Instagram, Copy, Check, Hash, Tag, Loader2, RefreshCw, Send, ArrowRight, Key } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { cn } from '../lib/utils';
 import { storage } from '../services/storage';
@@ -20,6 +20,7 @@ export default function Gemini() {
   
   const fileInputRef = useRef<HTMLInputElement>(null);
   const settings = storage.getSettings();
+  const hasApiKey = !!settings.geminiApiKey;
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -40,8 +41,11 @@ export default function Gemini() {
     try {
       const data = await analyzeImageForInstagram(image, mimeType, extraPrompt);
       setResult(data);
-    } catch (error) {
-      alert("Failed to analyze image. Please try again.");
+    } catch (error: any) {
+      const msg = error?.message?.includes("API key")
+        ? "Please add your Gemini API key in Settings first."
+        : "Failed to analyze image. Please try again.";
+      alert(msg);
     } finally {
       setAnalyzing(false);
     }
@@ -67,6 +71,20 @@ export default function Gemini() {
           <Sparkles size={20} />
         </div>
       </header>
+
+      {!hasApiKey && (
+        <motion.div
+          initial={{ opacity: 0, y: -10 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="bg-amber-50 border border-amber-200 rounded-2xl p-4 flex items-start space-x-3"
+        >
+          <Key size={18} className="text-amber-600 mt-0.5 shrink-0" />
+          <div>
+            <p className="text-sm font-bold text-amber-800">API Key Required</p>
+            <p className="text-xs text-amber-600 mt-1">Add your Gemini API key in <span className="font-bold">Settings</span> to use AI features.</p>
+          </div>
+        </motion.div>
+      )}
 
       {!image ? (
         <motion.div
