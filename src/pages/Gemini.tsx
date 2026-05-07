@@ -1,5 +1,5 @@
 import React, { useState, useRef } from 'react';
-import { Camera, Upload, Sparkles, Instagram, Copy, Check, Hash, Tag, Loader2, RefreshCw, Send, ArrowRight, Key } from 'lucide-react';
+import { Camera, Upload, Sparkles, Instagram, Copy, Check, Hash, Tag, Loader2, RefreshCw, Send, ArrowRight, Key, Image } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { cn } from '../lib/utils';
 import { storage } from '../services/storage';
@@ -19,6 +19,7 @@ export default function Gemini() {
   const [copied, setCopied] = useState<'caption' | 'hashtags' | null>(null);
   
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const cameraInputRef = useRef<HTMLInputElement>(null);
   const settings = storage.getSettings();
   const hasApiKey = !!settings.geminiApiKey;
 
@@ -90,22 +91,48 @@ export default function Gemini() {
         <motion.div
           initial={{ opacity: 0, scale: 0.95 }}
           animate={{ opacity: 1, scale: 1 }}
-          onClick={() => fileInputRef.current?.click()}
-          className="aspect-square w-full rounded-[2rem] border-2 border-dashed border-gray-200 bg-white flex flex-col items-center justify-center space-y-4 p-8 cursor-pointer hover:border-pink-300 hover:bg-pink-50/10 transition-all group"
+          className="space-y-4"
         >
-          <div className="w-20 h-20 rounded-full bg-pink-50 flex items-center justify-center text-pink-600 group-hover:scale-110 transition-transform duration-500">
-            <Camera size={40} />
-          </div>
-          <div className="text-center">
-            <p className="font-bold text-gray-900 leading-tight">Upload Product Photo</p>
-            <p className="text-sm text-gray-400 mt-1">Tap to select or take a photo</p>
-          </div>
+          {/* Camera Button */}
+          <button
+            onClick={() => cameraInputRef.current?.click()}
+            className="w-full aspect-[2/1] rounded-[2rem] border-2 border-dashed border-pink-200 bg-gradient-to-br from-pink-50 to-white flex flex-col items-center justify-center space-y-3 p-8 cursor-pointer hover:border-pink-400 hover:bg-pink-50/30 transition-all group"
+          >
+            <div className="w-16 h-16 rounded-full bg-pink-100 flex items-center justify-center text-pink-600 group-hover:scale-110 transition-transform duration-500">
+              <Camera size={32} />
+            </div>
+            <div className="text-center">
+              <p className="font-bold text-gray-900 leading-tight">Open Camera</p>
+              <p className="text-sm text-gray-400 mt-1">Take a product photo</p>
+            </div>
+          </button>
+          <input 
+            type="file" 
+            ref={cameraInputRef} 
+            onChange={handleFileChange} 
+            accept="image/*" 
+            capture="environment"
+            className="hidden" 
+          />
+
+          {/* Gallery Upload Button */}
+          <button
+            onClick={() => fileInputRef.current?.click()}
+            className="w-full aspect-[2/1] rounded-[2rem] border-2 border-dashed border-gray-200 bg-white flex flex-col items-center justify-center space-y-3 p-8 cursor-pointer hover:border-pink-300 hover:bg-pink-50/10 transition-all group"
+          >
+            <div className="w-16 h-16 rounded-full bg-gray-50 flex items-center justify-center text-gray-500 group-hover:text-pink-600 group-hover:scale-110 transition-transform duration-500">
+              <Image size={32} />
+            </div>
+            <div className="text-center">
+              <p className="font-bold text-gray-900 leading-tight">Upload from Gallery</p>
+              <p className="text-sm text-gray-400 mt-1">Select a photo from your phone</p>
+            </div>
+          </button>
           <input 
             type="file" 
             ref={fileInputRef} 
             onChange={handleFileChange} 
             accept="image/*" 
-            capture="environment"
             className="hidden" 
           />
         </motion.div>

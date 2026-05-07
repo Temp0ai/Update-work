@@ -1,11 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, Search, UserPlus, Phone, Mail, Calendar, Users, Trash2, Check } from 'lucide-react';
+import { Plus, Search, UserPlus, Phone, Mail, Calendar, Users, Trash2, Check, RefreshCw, Download, Loader2 } from 'lucide-react';
 import { storage } from '../services/storage';
 import { Customer } from '../types';
 import { Link } from 'react-router-dom';
 import { useNavigate } from 'react-router-dom';
 import { cn, generateId } from '../lib/utils';
 import { motion, AnimatePresence } from 'motion/react';
+import { Contacts } from '@capacitor-community/contacts';
 
 export default function Customers() {
   const navigate = useNavigate();
@@ -15,6 +16,8 @@ export default function Customers() {
   const [isDeleteMode, setIsDeleteMode] = useState(false);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [isSyncing, setIsSyncing] = useState(false);
+  const [syncResult, setSyncResult] = useState<{ imported: number; skipped: number } | null>(null);
   const [formData, setFormData] = useState({
     name: '',
     phone: '',
@@ -25,10 +28,85 @@ export default function Customers() {
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
   const [showToast, setShowToast] = useState(false);
+  const [toastMessage, setToastMessage] = useState('');
 
   useEffect(() => {
     setCustomers(storage.getCustomers());
   }, []);
+
+  const handleSyncContacts = async () => {
+    setIsSyncing(true);
+    setSyncResult(null);
+    try {
+      const permission = await Contacts.requestPermissions();
+      if (permission.contacts !== 'granted') {
+        alert('Contact permission is required to sync contacts.');
+        setIsSyncing(false);
+        return;
+      }
+
+      const result = await Contacts.getContacts({
+        projection: {
+          name: true,
+          phones: true,
+          birthday: true,
+        }
+      });
+
+      const existingPhones = new Set(
+        storage.getCustomers().map(c => c.phone.replace(/\D/g, '').slice(-10))
+      );
+
+      let imported = 0;
+      let skipped = 0;
+
+      for (const contact of result.contacts) {
+        const name = contact.name?.display || '';
+        const phone = contact.phones?.[0]?.number || '';
+        
+        if (!name || !phone) {
+          skipped++;
+          continue;
+        }
+
+        const cleanPhone = phone.replace(/\D/g, '');
+        const last10 = cleanPhone.slice(-10);
+        
+        if (existingPhones.has(last10)) {
+          skipped++;
+          continue;
+        }
+
+        const birthday = contact.birthday 
+          ? `${contact.birthday.year || '2000'}-${String(contact.birthday.month).padStart(2, '0')}-${String(contact.birthday.day).padStart(2, '0')}`
+          : '';
+
+        const newCustomer: Customer = {
+          id: generateId(),
+          name: name.trim(),
+          phone: phone.trim(),
+          birthday,
+          notes: '',
+          createdAt: Date.now()
+        };
+
+        storage.saveCustomer(newCustomer);
+        existingPhones.add(last10);
+        imported++;
+      }
+
+      setCustomers(storage.getCustomers());
+      setSyncResult({ imported, skipped });
+      setToastMessage(`Synced: ${imported} imported, ${skipped} skipped`);
+      setShowToast(true);
+      setTimeout(() => setShowToast(false), 3000);
+    } catch (error: any) {
+      console.error('Contact sync error:', error);
+      alert('Failed to sync contacts. Make sure contact permission is granted.');
+    } finally {
+      setIsSyncing(false);
+    }
+  };
 
   const handleAdd = (e: React.FormEvent) => {
     e.preventDefault();
@@ -93,6 +171,17 @@ export default function Customers() {
       <div className="flex items-center justify-between">
         <h2 className="text-2xl font-bold tracking-tight text-gray-900">Customers</h2>
         <div className="flex items-center space-x-2">
+          <button 
+            onClick={handleSyncContacts}
+            disabled={isSyncing}
+            className={cn(
+              "p-2 rounded-full transition-all border",
+              isSyncing ? "bg-blue-100 border-blue-300 text-blue-600" : "bg-white border-gray-100 text-gray-400 hover:text-blue-500 hover:border-blue-200"
+            )}
+            title="Sync Phone Contacts"
+          >
+            {isSyncing ? <Loader2 size={20} className="animate-spin" /> : <RefreshCw size={20} />}
+          </button>
           <button 
             onClick={() => {
               setIsDeleteMode(!isDeleteMode);
