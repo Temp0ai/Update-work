@@ -1,11 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import { MessageCircle, Gift, Clock, Sparkles, Send, Check, Loader2, Users, Search, ChevronDown, X, Download, ExternalLink, FileSpreadsheet, Pencil, Plus, ArrowLeft, Trash2 } from 'lucide-react';
+import { MessageCircle, Gift, Clock, Sparkles, Send, Check, Loader2, Users, Search, ChevronDown, X, Download, ExternalLink, FileSpreadsheet, Pencil, Plus, ArrowLeft, Trash2, Smartphone } from 'lucide-react';
 import { storage } from '../services/storage';
 import { Customer, Purchase } from '../types';
-import { getWhatsAppLink, getWhatsAppAppLink, cn } from '../lib/utils';
+import { getWhatsAppLink, getWhatsAppAppLink, cn, generateId } from '../lib/utils';
 import { format, subDays, getMonth, getDate } from 'date-fns';
 import { motion, AnimatePresence } from 'motion/react';
 import { generatePersonalizedMessage } from '../services/ai';
+import { Contacts } from '@capacitor-community/contacts';
 
 type Tab = 'whatsapp' | 'birthdays' | 'followup' | 'sheets';
 
@@ -194,6 +195,78 @@ function WhatsAppBulkTab({ onBulkQueue }: { onBulkQueue: (q: BulkQueue) => void 
     saveGroups(groups.map(g => g.id === groupId ? { ...g, contactIds: [...g.contactIds, ...capped] } : g));
   };
 
+  const [isSyncingToGroup, setIsSyncingToGroup] = useState(false);
+
+  const syncPhoneContactsToGroup = async (groupId: string) => {
+    setIsSyncingToGroup(true);
+    try {
+      const permission = await Contacts.requestPermissions();
+      if (permission.contacts !== 'granted') {
+        alert('Contact permission is required.');
+        setIsSyncingToGroup(false);
+        return;
+      }
+
+      const result = await Contacts.getContacts({
+        projection: { name: true, phones: true }
+      });
+
+      const group = groups.find(g => g.id === groupId);
+      if (!group) { setIsSyncingToGroup(false); return; }
+
+      const existingPhones = new Set(
+        customers.map(c => c.phone.replace(/\D/g, '').slice(-10))
+      );
+      const existingGroupIds = new Set(group.contactIds);
+      let imported = 0;
+
+      for (const contact of result.contacts) {
+        if (group.contactIds.length + imported >= 100) break;
+        const name = contact.name?.display || '';
+        const phone = contact.phones?.[0]?.number || '';
+        if (!name || !phone) continue;
+
+        const cleanPhone = phone.replace(/\D/g, '');
+        const last10 = cleanPhone.slice(-10);
+
+        // Check if already in CRM
+        let existingCustomer = customers.find(c => c.phone.replace(/\D/g, '').slice(-10) === last10);
+
+        if (!existingCustomer) {
+          // Create new customer in CRM
+          const newCustomer: Customer = {
+            id: generateId(),
+            name: name.trim(),
+            phone: phone.trim(),
+            birthday: '',
+            notes: '',
+            createdAt: Date.now()
+          };
+          storage.saveCustomer(newCustomer);
+          customers.push(newCustomer);
+          existingPhones.add(last10);
+          existingCustomer = newCustomer;
+        }
+
+        // Add to group if not already in it
+        if (!existingGroupIds.has(existingCustomer.id)) {
+          group.contactIds.push(existingCustomer.id);
+          existingGroupIds.add(existingCustomer.id);
+          imported++;
+        }
+      }
+
+      saveGroups(groups.map(g => g.id === groupId ? { ...g, contactIds: [...group.contactIds] } : g));
+      setCustomers(storage.getCustomers());
+      alert(`Synced ${imported} contacts from phone to group.`);
+    } catch (error) {
+      console.error('Contact sync error:', error);
+      alert('Failed to sync contacts.');
+    } finally {
+      setIsSyncingToGroup(false);
+    }
+  };
+
   const startBroadcast = () => {
     if (!selectedGroup || !message.trim()) return;
     const groupCustomers = customers.filter(c => selectedGroup.contactIds.includes(c.id));
@@ -370,6 +443,17 @@ function WhatsAppBulkTab({ onBulkQueue }: { onBulkQueue: (q: BulkQueue) => void 
             <h3 className="font-bold text-gray-900">{currentManageGroup.name}</h3>
             <p className="text-[10px] text-gray-400">{currentManageGroup.contactIds.length}/100 contacts</p>
           </div>
+          <button
+            onClick={() => syncPhoneContactsToGroup(currentManageGroup.id)}
+            disabled={isSyncingToGroup || currentManageGroup.contactIds.length >= 100}
+            className={cn(
+              "flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[10px] font-bold transition-all",
+              isSyncingToGroup ? "bg-blue-100 text-blue-600" : "bg-blue-50 text-blue-600 hover:bg-blue-100"
+            )}
+          >
+            {isSyncingToGroup ? <Loader2 size={12} className="animate-spin" /> : <Smartphone size={12} />}
+            {isSyncingToGroup ? 'Syncing...' : 'Phone Contacts'}
+          </button>
           <button
             onClick={() => addAllToGroup(currentManageGroup.id)}
             className="px-3 py-1.5 bg-green-50 text-green-700 rounded-lg text-[10px] font-bold"
