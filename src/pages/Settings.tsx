@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { storage } from '../services/storage';
 import { BusinessSettings } from '../types';
-import { Store, User, Phone, Save, CheckCircle2, Search, Trash2, X, Key, Eye, EyeOff } from 'lucide-react';
+import { Store, User, Phone, Save, CheckCircle2, Search, Trash2, X, Key, Eye, EyeOff, Smartphone } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { cn } from '../lib/utils';
 import { Customer } from '../types';
@@ -124,6 +124,32 @@ export default function Settings() {
               onChange={e => setSettings({...settings, ownerPhone: e.target.value})}
               className="w-full px-4 py-3 bg-gray-50 border border-transparent focus:border-pink-200 focus:bg-white rounded-xl transition-all outline-none"
             />
+          </div>
+
+          <div className="pt-2 border-t border-gray-50"></div>
+
+          {/* Enable Contact Sync */}
+          <div className="flex items-center justify-between py-1">
+            <label className="flex items-center text-xs font-bold text-gray-400 uppercase tracking-widest px-1">
+              <Smartphone size={14} className="mr-2" /> Enable Contact Sync
+            </label>
+            <button
+              type="button"
+              role="switch"
+              aria-checked={!!settings.contactSync}
+              onClick={() => setSettings({ ...settings, contactSync: !settings.contactSync })}
+              className={cn(
+                "relative w-11 h-6 rounded-full transition-colors duration-200 focus:outline-none",
+                settings.contactSync ? "bg-[#25D366]" : "bg-gray-200"
+              )}
+            >
+              <span
+                className={cn(
+                  "absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white shadow-md transition-transform duration-200",
+                  settings.contactSync ? "translate-x-5" : "translate-x-0"
+                )}
+              />
+            </button>
           </div>
 
           <div className="pt-2 border-t border-gray-50"></div>

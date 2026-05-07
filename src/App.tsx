@@ -87,8 +87,15 @@ export default function App() {
           </Link>
           <div className="flex items-center space-x-1">
             <Link to="/settings" className="p-2 text-gray-400 hover:text-pink-600 transition-colors">
-              <div className="w-8 h-8 rounded-full bg-pink-50 flex items-center justify-center text-pink-600 border border-pink-100">
-                {settings.ownerName.charAt(0)}
+              <div className="w-8 h-8 rounded-full bg-pink-50 flex items-center justify-center border border-pink-100">
+                {/* Android Robot Icon */}
+                <svg viewBox="0 0 24 24" width="20" height="20" fill="#A4C639">
+                  <path d="M6 15a2 2 0 0 1-2-2V9a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v4a2 2 0 0 1-2 2H6z"/>
+                  <path d="M6 7V5a6 6 0 0 1 12 0v2" stroke="#A4C639" strokeWidth="1.5" fill="none" strokeLinecap="round"/>
+                  <circle cx="9" cy="11" r="1" fill="white"/>
+                  <circle cx="15" cy="11" r="1" fill="white"/>
+                  <path d="M8 15v2a4 4 0 0 0 8 0v-2" stroke="#A4C639" strokeWidth="1.5" fill="none" strokeLinecap="round"/>
+                </svg>
               </div>
             </Link>
           </div>

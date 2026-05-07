@@ -62,7 +62,7 @@ export default function Messages() {
   return (
     <div className="space-y-4">
       <header>
-        <h2 className="text-2xl font-bold tracking-tight">Outreach Center</h2>
+        <h2 className="text-2xl font-bold tracking-tight">WhatsApp</h2>
         <p className="text-sm text-gray-500">Engage Meraki customers with fashion updates.</p>
       </header>
 

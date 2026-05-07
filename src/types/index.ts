@@ -38,4 +38,5 @@ export interface BusinessSettings {
   ownerName: string;
   ownerPhone: string;
   geminiApiKey?: string;
+  contactSync?: boolean;
 }
