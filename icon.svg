@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <!-- Background circle -->
+  <circle cx="256" cy="256" r="256" fill="#25D366"/>
+  <!-- Inner shadow/glow -->
+  <circle cx="256" cy="256" r="230" fill="#20BD5A"/>
+  <!-- Chat bubble -->
+  <path d="M140 180 C140 152 162 130 190 130 L322 130 C350 130 372 152 372 180 L372 290 C372 318 350 340 322 340 L250 340 L200 380 L200 340 L190 340 C162 340 140 318 140 290 Z" fill="white"/>
+  <!-- Letter M -->
+  <text x="256" y="290" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-weight="bold" font-size="160" fill="#25D366">M</text>
+</svg>

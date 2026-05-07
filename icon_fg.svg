@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 108 108">
+  <!-- Foreground for adaptive icon (centered in safe zone) -->
+  <!-- Chat bubble -->
+  <path d="M28 36 C28 30.5 32.5 26 38 26 L70 26 C75.5 26 80 30.5 80 36 L80 58 C80 63.5 75.5 68 70 68 L52 68 L42 78 L42 68 L38 68 C32.5 68 28 63.5 28 58 Z" fill="white"/>
+  <!-- Letter M -->
+  <text x="54" y="60" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-weight="bold" font-size="30" fill="#25D366">M</text>
+</svg>
