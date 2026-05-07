@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { MessageCircle, Gift, Clock, Sparkles, Send, Check, Loader2, Users, Search, ChevronDown, X, Download, ExternalLink, FileSpreadsheet, Pencil } from 'lucide-react';
+import { MessageCircle, Gift, Clock, Sparkles, Send, Check, Loader2, Users, Search, ChevronDown, X, Download, ExternalLink, FileSpreadsheet, Pencil, Plus, ArrowLeft, Trash2 } from 'lucide-react';
 import { storage } from '../services/storage';
 import { Customer, Purchase } from '../types';
 import { getWhatsAppLink, getWhatsAppAppLink, cn } from '../lib/utils';
@@ -112,223 +112,432 @@ export default function Messages() {
 }
 
 /* ─── WhatsApp Bulk Tab ─── */
+interface ContactGroup {
+  id: string;
+  name: string;
+  contactIds: string[];
+  createdAt: number;
+}
+
 function WhatsAppBulkTab({ onBulkQueue }: { onBulkQueue: (q: BulkQueue) => void }) {
   const [customers, setCustomers] = useState<Customer[]>([]);
-  const [selected, setSelected] = useState<string[]>([]);
-  const [search, setSearch] = useState('');
+  const [groups, setGroups] = useState<ContactGroup[]>([]);
+  const [activeView, setActiveView] = useState<'groups' | 'manage' | 'compose'>('groups');
+  const [selectedGroup, setSelectedGroup] = useState<ContactGroup | null>(null);
   const [message, setMessage] = useState('');
-  const [showBroadcastLists, setShowBroadcastLists] = useState(false);
-  const [savedLists, setSavedLists] = useState<{ name: string; ids: string[] }[]>([]);
-  const [newListName, setNewListName] = useState('');
-  const [showSaveList, setShowSaveList] = useState(false);
+  const [messageType, setMessageType] = useState<'custom' | 'ai_offer' | 'ai_followup'>('custom');
+  const [isGenerating, setIsGenerating] = useState(false);
+  const [search, setSearch] = useState('');
+  const [editingGroup, setEditingGroup] = useState<string | null>(null);
+  const [editName, setEditName] = useState('');
+  const [showNewGroup, setShowNewGroup] = useState(false);
+  const [newGroupName, setNewGroupName] = useState('');
+  const [manageGroupId, setManageGroupId] = useState<string | null>(null);
+
+  const GROUPS_KEY = 'meraki_contact_groups';
 
   useEffect(() => {
     setCustomers(storage.getCustomers());
-    const lists = localStorage.getItem('meraki_broadcast_lists');
-    if (lists) setSavedLists(JSON.parse(lists));
+    const saved = localStorage.getItem(GROUPS_KEY);
+    if (saved) setGroups(JSON.parse(saved));
   }, []);
 
-  const filtered = customers.filter(c =>
-    c.name.toLowerCase().includes(search.toLowerCase()) || c.phone.includes(search)
-  );
-
-  const toggleCustomer = (id: string) => {
-    setSelected(prev => prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id]);
+  const saveGroups = (updated: ContactGroup[]) => {
+    setGroups(updated);
+    localStorage.setItem(GROUPS_KEY, JSON.stringify(updated));
   };
 
-  const selectAll = () => setSelected(filtered.map(c => c.id));
-  const clearSelection = () => setSelected([]);
-
-  const loadList = (ids: string[]) => {
-    setSelected(ids);
-    setShowBroadcastLists(false);
+  const createGroup = () => {
+    if (!newGroupName.trim()) return;
+    const group: ContactGroup = {
+      id: Date.now().toString(36) + Math.random().toString(36).substring(2, 6),
+      name: newGroupName.trim(),
+      contactIds: [],
+      createdAt: Date.now()
+    };
+    saveGroups([...groups, group]);
+    setNewGroupName('');
+    setShowNewGroup(false);
   };
 
-  const saveCurrentAsList = () => {
-    if (!newListName.trim() || selected.length === 0) return;
-    const updated = [...savedLists, { name: newListName.trim(), ids: [...selected] }];
-    setSavedLists(updated);
-    localStorage.setItem('meraki_broadcast_lists', JSON.stringify(updated));
-    setNewListName('');
-    setShowSaveList(false);
+  const renameGroup = (groupId: string) => {
+    if (!editName.trim()) return;
+    saveGroups(groups.map(g => g.id === groupId ? { ...g, name: editName.trim() } : g));
+    setEditingGroup(null);
+    setEditName('');
   };
 
-  const deleteList = (index: number) => {
-    const updated = savedLists.filter((_, i) => i !== index);
-    setSavedLists(updated);
-    localStorage.setItem('meraki_broadcast_lists', JSON.stringify(updated));
+  const deleteGroup = (groupId: string) => {
+    saveGroups(groups.filter(g => g.id !== groupId));
+    if (selectedGroup?.id === groupId) setSelectedGroup(null);
+    if (manageGroupId === groupId) setManageGroupId(null);
+  };
+
+  const addContactToGroup = (groupId: string, contactId: string) => {
+    const group = groups.find(g => g.id === groupId);
+    if (!group) return;
+    if (group.contactIds.length >= 100) return alert('Group limit: 100 contacts max');
+    if (group.contactIds.includes(contactId)) return;
+    saveGroups(groups.map(g => g.id === groupId ? { ...g, contactIds: [...g.contactIds, contactId] } : g));
+  };
+
+  const removeContactFromGroup = (groupId: string, contactId: string) => {
+    saveGroups(groups.map(g => g.id === groupId ? { ...g, contactIds: g.contactIds.filter(id => id !== contactId) } : g));
+  };
+
+  const addAllToGroup = (groupId: string) => {
+    const group = groups.find(g => g.id === groupId);
+    if (!group) return;
+    const filtered = filteredManage;
+    const newIds = filtered.map(c => c.id).filter(id => !group.contactIds.includes(id));
+    const capped = newIds.slice(0, 100 - group.contactIds.length);
+    saveGroups(groups.map(g => g.id === groupId ? { ...g, contactIds: [...g.contactIds, ...capped] } : g));
   };
 
   const startBroadcast = () => {
-    if (selected.length === 0 || !message.trim()) return;
-    const selectedCustomers = customers.filter(c => selected.includes(c.id));
+    if (!selectedGroup || !message.trim()) return;
+    const groupCustomers = customers.filter(c => selectedGroup.contactIds.includes(c.id));
+    if (groupCustomers.length === 0) return;
     onBulkQueue({
       active: true,
-      customers: selectedCustomers,
+      customers: groupCustomers,
       currentIndex: 0,
       message: message.trim(),
       isPaused: false
     });
   };
 
-  return (
-    <div className="space-y-4">
-      {/* Message Template */}
-      <div className="bg-white p-4 rounded-2xl border border-gray-100 space-y-3">
-        <label className="text-xs font-bold text-gray-400 uppercase tracking-widest px-1">Broadcast Message</label>
-        <textarea 
-          value={message}
-          onChange={(e) => setMessage(e.target.value)}
-          placeholder="Type your WhatsApp broadcast message..."
-          className="w-full text-sm bg-gray-50 p-3 rounded-xl border border-gray-50 text-gray-700 h-24 focus:ring-2 focus:ring-green-100 focus:border-green-300 focus:outline-none transition-all outline-none resize-none"
-        />
-        <p className="text-[10px] text-gray-400 px-1">{selected.length} recipient{selected.length !== 1 ? 's' : ''} selected</p>
-      </div>
+  const handleAIGenerate = async (type: 'offer' | 'followup') => {
+    setIsGenerating(true);
+    try {
+      const settings = storage.getSettings();
+      const sampleCustomer = customers[0];
+      if (!sampleCustomer) { setIsGenerating(false); return; }
+      const msg = await generatePersonalizedMessage(sampleCustomer, type === 'offer' ? 'offer' : 'followup', [], { tone: 'enthusiastic', length: 'medium' });
+      setMessage(msg);
+      setMessageType(type === 'offer' ? 'ai_offer' : 'ai_followup');
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setIsGenerating(false);
+    }
+  };
 
-      {/* Broadcast Lists */}
-      <div className="bg-white rounded-2xl border border-gray-100 overflow-hidden">
-        <button 
-          onClick={() => setShowBroadcastLists(!showBroadcastLists)}
-          className="w-full flex items-center justify-between p-4 hover:bg-gray-50 transition-colors"
-        >
-          <div className="flex items-center gap-2">
-            {WHATSAPP_SVG}
-            <span className="font-bold text-sm text-gray-800">Broadcast Lists</span>
-            {savedLists.length > 0 && (
-              <span className="text-[10px] bg-green-100 text-green-700 px-2 py-0.5 rounded-full font-bold">
-                {savedLists.length}
-              </span>
-            )}
-          </div>
-          <ChevronDown size={18} className={cn("text-gray-400 transition-transform", showBroadcastLists && "rotate-180")} />
-        </button>
+  const filteredManage = customers.filter(c =>
+    c.name.toLowerCase().includes(search.toLowerCase()) || c.phone.includes(search)
+  );
 
+  const currentManageGroup = groups.find(g => g.id === manageGroupId);
+
+  /* ── Groups List View ── */
+  if (activeView === 'groups') {
+    return (
+      <div className="space-y-4">
+        <div className="flex items-center justify-between">
+          <p className="text-sm text-gray-500">{groups.length} group{groups.length !== 1 ? 's' : ''} • Up to 100 contacts each</p>
+          <button onClick={() => setShowNewGroup(true)} className="flex items-center gap-1.5 px-3 py-2 bg-[#25D366] text-white rounded-xl text-xs font-bold shadow-lg shadow-green-100 active:scale-95 transition-all">
+            <Plus size={14} />
+            New Group
+          </button>
+        </div>
+
+        {/* New Group Input */}
         <AnimatePresence>
-          {showBroadcastLists && (
-            <motion.div
-              initial={{ height: 0 }}
-              animate={{ height: 'auto' }}
-              exit={{ height: 0 }}
-              className="overflow-hidden"
-            >
-              <div className="px-4 pb-4 space-y-2">
-                {savedLists.length === 0 ? (
-                  <p className="text-xs text-gray-400 text-center py-3 italic">No saved lists yet. Select contacts and save as a list.</p>
-                ) : (
-                  savedLists.map((list, i) => (
-                    <div key={i} className="flex items-center gap-2 bg-gray-50 rounded-xl p-3">
-                      <button 
-                        onClick={() => loadList(list.ids)}
-                        className="flex-1 text-left"
-                      >
-                        <p className="text-sm font-bold text-gray-800">{list.name}</p>
-                        <p className="text-[10px] text-gray-400">{list.ids.length} contacts</p>
-                      </button>
-                      <button onClick={() => deleteList(i)} className="p-1.5 text-gray-300 hover:text-red-500 rounded-lg transition-colors">
-                        <X size={14} />
-                      </button>
-                    </div>
-                  ))
-                )}
+          {showNewGroup && (
+            <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }} className="overflow-hidden">
+              <div className="bg-white rounded-2xl border border-green-200 p-4 space-y-3">
+                <label className="text-xs font-bold text-gray-400 uppercase tracking-widest">Group Name</label>
+                <input
+                  type="text"
+                  value={newGroupName}
+                  onChange={e => setNewGroupName(e.target.value)}
+                  placeholder="e.g. VIP Customers, Sale Group, Wholesale..."
+                  className="w-full px-4 py-3 bg-gray-50 border border-transparent focus:border-green-200 focus:bg-white rounded-xl transition-all outline-none text-sm"
+                  autoFocus
+                  onKeyDown={e => e.key === 'Enter' && createGroup()}
+                />
+                <div className="flex gap-2">
+                  <button onClick={createGroup} className="flex-1 py-2.5 bg-[#25D366] text-white rounded-xl text-xs font-bold">Create Group</button>
+                  <button onClick={() => { setShowNewGroup(false); setNewGroupName(''); }} className="px-4 py-2.5 bg-gray-100 text-gray-500 rounded-xl text-xs font-bold">Cancel</button>
+                </div>
               </div>
             </motion.div>
           )}
         </AnimatePresence>
-      </div>
 
-      {/* Save as list */}
-      {selected.length > 0 && (
-        <div className="bg-green-50 rounded-2xl border border-green-100 p-3 flex items-center gap-2">
-          {showSaveList ? (
-            <>
-              <input 
-                type="text"
-                value={newListName}
-                onChange={(e) => setNewListName(e.target.value)}
-                placeholder="List name..."
-                className="flex-1 text-sm bg-white px-3 py-2 rounded-xl border border-green-200 outline-none focus:ring-1 focus:ring-green-300"
-                autoFocus
-              />
-              <button onClick={saveCurrentAsList} className="px-3 py-2 bg-green-600 text-white text-xs font-bold rounded-xl">Save</button>
-              <button onClick={() => setShowSaveList(false)} className="p-2 text-gray-400"><X size={14} /></button>
-            </>
-          ) : (
-            <button onClick={() => setShowSaveList(true)} className="text-xs font-bold text-green-700 flex items-center gap-1">
-              <Download size={14} />
-              Save as Broadcast List
-            </button>
-          )}
-        </div>
-      )}
-
-      {/* Contact Selection */}
-      <div className="relative">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
-        <input 
-          type="text" 
-          placeholder="Search contacts..."
-          className="w-full pl-9 pr-4 py-2.5 bg-white border border-gray-100 rounded-xl focus:ring-2 focus:ring-green-100 focus:outline-none transition-all outline-none text-sm"
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-        />
-      </div>
-
-      <div className="flex gap-2">
-        <button onClick={selectAll} className="flex-1 py-2 bg-gray-100 text-gray-600 rounded-xl text-xs font-bold hover:bg-gray-200 transition-colors">
-          Select All ({filtered.length})
-        </button>
-        <button onClick={clearSelection} className="flex-1 py-2 bg-gray-100 text-gray-600 rounded-xl text-xs font-bold hover:bg-gray-200 transition-colors">
-          Clear
-        </button>
-      </div>
-
-      <div className="space-y-2 max-h-[40vh] overflow-y-auto pr-1">
-        {filtered.map(customer => (
-          <button
-            key={customer.id}
-            onClick={() => toggleCustomer(customer.id)}
-            className={cn(
-              "w-full flex items-center gap-3 p-3 rounded-xl border transition-all text-left",
-              selected.includes(customer.id)
-                ? "bg-green-50 border-green-200"
-                : "bg-white border-gray-100 hover:border-green-100"
-            )}
-          >
-            <div className={cn(
-              "w-5 h-5 rounded-full border-2 flex items-center justify-center shrink-0 transition-all",
-              selected.includes(customer.id) ? "bg-green-500 border-green-500" : "border-gray-300"
-            )}>
-              {selected.includes(customer.id) && <Check size={12} className="text-white" strokeWidth={3} />}
+        {/* Group Cards */}
+        {groups.length === 0 ? (
+          <div className="text-center py-16 bg-white rounded-2xl border border-gray-100">
+            <div className="w-20 h-20 bg-green-50 rounded-full flex items-center justify-center mx-auto mb-4">
+              {WHATSAPP_SVG}
             </div>
-            <div className="flex-1 min-w-0">
-              <p className="font-bold text-sm text-gray-900 truncate">{customer.name}</p>
-              <p className="text-[10px] text-gray-400">{customer.phone}</p>
-            </div>
-            {selected.includes(customer.id) && (
-              <span className="text-[10px] font-bold text-green-600 bg-green-100 px-2 py-0.5 rounded-full">
-                {selected.indexOf(customer.id) + 1}
-              </span>
-            )}
-          </button>
-        ))}
-        {filtered.length === 0 && (
-          <p className="text-center py-8 text-gray-400 text-sm italic">No contacts found</p>
+            <p className="text-gray-800 font-bold mb-1">No Groups Yet</p>
+            <p className="text-gray-400 text-sm">Create a group to start bulk messaging</p>
+          </div>
+        ) : (
+          <div className="space-y-3">
+            {groups.map(group => {
+              const groupContacts = customers.filter(c => group.contactIds.includes(c.id));
+              return (
+                <div key={group.id} className="bg-white rounded-2xl border border-gray-100 overflow-hidden shadow-sm">
+                  {/* Group Header */}
+                  <div className="p-4 flex items-center gap-3">
+                    <div className="w-12 h-12 bg-[#25D366]/10 rounded-xl flex items-center justify-center shrink-0">
+                      {WHATSAPP_SVG}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      {editingGroup === group.id ? (
+                        <div className="flex items-center gap-2">
+                          <input
+                            type="text"
+                            value={editName}
+                            onChange={e => setEditName(e.target.value)}
+                            className="flex-1 text-sm font-bold px-2 py-1 border border-green-200 rounded-lg outline-none"
+                            autoFocus
+                            onKeyDown={e => { if (e.key === 'Enter') renameGroup(group.id); if (e.key === 'Escape') setEditingGroup(null); }}
+                          />
+                          <button onClick={() => renameGroup(group.id)} className="p-1 text-green-600"><Check size={16} /></button>
+                          <button onClick={() => setEditingGroup(null)} className="p-1 text-gray-400"><X size={16} /></button>
+                        </div>
+                      ) : (
+                        <p className="font-bold text-gray-900 truncate">{group.name}</p>
+                      )}
+                      <p className="text-[10px] text-gray-400 mt-0.5">
+                        {group.contactIds.length}/100 contacts
+                        {groupContacts.length > 0 && <span className="text-gray-300"> • </span>}
+                        {groupContacts.slice(0, 3).map(c => c.name).join(', ')}
+                        {groupContacts.length > 3 && ` +${groupContacts.length - 3} more`}
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-1">
+                      <button
+                        onClick={() => { setEditingGroup(group.id); setEditName(group.name); }}
+                        className="p-2 text-gray-300 hover:text-blue-500 rounded-lg transition-colors"
+                        title="Rename"
+                      >
+                        <Pencil size={14} />
+                      </button>
+                      <button
+                        onClick={() => { setManageGroupId(group.id); setActiveView('manage'); setSearch(''); }}
+                        className="p-2 text-gray-300 hover:text-green-600 rounded-lg transition-colors"
+                        title="Manage contacts"
+                      >
+                        <Users size={14} />
+                      </button>
+                      <button
+                        onClick={() => deleteGroup(group.id)}
+                        className="p-2 text-gray-300 hover:text-red-500 rounded-lg transition-colors"
+                        title="Delete group"
+                      >
+                        <Trash2 size={14} />
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Send to Group Button */}
+                  <button
+                    onClick={() => { setSelectedGroup(group); setActiveView('compose'); setMessage(''); }}
+                    disabled={group.contactIds.length === 0}
+                    className={cn(
+                      "w-full py-3 flex items-center justify-center gap-2 text-xs font-bold transition-all",
+                      group.contactIds.length > 0
+                        ? "bg-[#25D366] text-white hover:bg-[#20BD5A]"
+                        : "bg-gray-50 text-gray-300 cursor-not-allowed"
+                    )}
+                  >
+                    {WHATSAPP_SVG}
+                    <span>Send to {group.name}</span>
+                    <ExternalLink size={12} />
+                  </button>
+                </div>
+              );
+            })}
+          </div>
         )}
       </div>
+    );
+  }
 
-      {/* Start Broadcast Button */}
-      <button 
+  /* ── Manage Contacts View ── */
+  if (activeView === 'manage' && currentManageGroup) {
+    return (
+      <div className="space-y-4">
+        <div className="flex items-center gap-3">
+          <button onClick={() => { setActiveView('groups'); setManageGroupId(null); }} className="p-2 text-gray-400 hover:text-gray-600">
+            <ArrowLeft size={20} />
+          </button>
+          <div className="flex-1">
+            <h3 className="font-bold text-gray-900">{currentManageGroup.name}</h3>
+            <p className="text-[10px] text-gray-400">{currentManageGroup.contactIds.length}/100 contacts</p>
+          </div>
+          <button
+            onClick={() => addAllToGroup(currentManageGroup.id)}
+            className="px-3 py-1.5 bg-green-50 text-green-700 rounded-lg text-[10px] font-bold"
+          >
+            + Add All
+          </button>
+        </div>
+
+        {/* Progress Bar */}
+        <div className="bg-gray-100 rounded-full h-2 overflow-hidden">
+          <div
+            className="h-full bg-[#25D366] rounded-full transition-all"
+            style={{ width: `${(currentManageGroup.contactIds.length / 100) * 100}%` }}
+          />
+        </div>
+
+        {/* Search */}
+        <div className="relative">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
+          <input
+            type="text"
+            placeholder="Search contacts to add..."
+            className="w-full pl-9 pr-4 py-2.5 bg-white border border-gray-100 rounded-xl focus:ring-2 focus:ring-green-100 focus:outline-none transition-all outline-none text-sm"
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+          />
+        </div>
+
+        {/* Contact List */}
+        <div className="space-y-2 max-h-[55vh] overflow-y-auto pr-1">
+          {filteredManage.map(customer => {
+            const inGroup = currentManageGroup.contactIds.includes(customer.id);
+            return (
+              <button
+                key={customer.id}
+                onClick={() => inGroup
+                  ? removeContactFromGroup(currentManageGroup.id, customer.id)
+                  : addContactToGroup(currentManageGroup.id, customer.id)
+                }
+                className={cn(
+                  "w-full flex items-center gap-3 p-3 rounded-xl border transition-all text-left",
+                  inGroup
+                    ? "bg-green-50 border-green-200"
+                    : "bg-white border-gray-100 hover:border-green-100"
+                )}
+              >
+                <div className={cn(
+                  "w-5 h-5 rounded-full border-2 flex items-center justify-center shrink-0 transition-all",
+                  inGroup ? "bg-green-500 border-green-500" : "border-gray-300"
+                )}>
+                  {inGroup && <Check size={12} className="text-white" strokeWidth={3} />}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="font-bold text-sm text-gray-900 truncate">{customer.name}</p>
+                  <p className="text-[10px] text-gray-400">{customer.phone}</p>
+                </div>
+                {inGroup && (
+                  <button
+                    onClick={e => { e.stopPropagation(); removeContactFromGroup(currentManageGroup.id, customer.id); }}
+                    className="p-1 text-gray-300 hover:text-red-500"
+                  >
+                    <X size={14} />
+                  </button>
+                )}
+              </button>
+            );
+          })}
+          {filteredManage.length === 0 && (
+            <p className="text-center py-8 text-gray-400 text-sm italic">No contacts found</p>
+          )}
+        </div>
+
+        {/* Done */}
+        <button
+          onClick={() => { setActiveView('groups'); setManageGroupId(null); }}
+          className="w-full py-3 bg-gray-100 text-gray-600 rounded-xl text-xs font-bold"
+        >
+          Done — {currentManageGroup.contactIds.length} contacts in group
+        </button>
+      </div>
+    );
+  }
+
+  /* ── Compose & Send View ── */
+  return (
+    <div className="space-y-4">
+      {/* Back */}
+      <div className="flex items-center gap-3">
+        <button onClick={() => { setActiveView('groups'); setSelectedGroup(null); setMessage(''); }} className="p-2 text-gray-400 hover:text-gray-600">
+          <ArrowLeft size={20} />
+        </button>
+        <div>
+          <h3 className="font-bold text-gray-900">Send to {selectedGroup?.name}</h3>
+          <p className="text-[10px] text-gray-400">{selectedGroup?.contactIds.length} recipients</p>
+        </div>
+      </div>
+
+      {/* Message Type Toggle */}
+      <div className="flex gap-1 bg-gray-100 p-1 rounded-xl">
+        <button
+          onClick={() => setMessageType('custom')}
+          className={cn("flex-1 py-2 rounded-lg text-[11px] font-bold transition-all", messageType === 'custom' ? "bg-white text-gray-900 shadow-sm" : "text-gray-500")}
+        >
+          Custom Message
+        </button>
+        <button
+          onClick={() => handleAIGenerate('offer')}
+          disabled={isGenerating}
+          className={cn("flex-1 py-2 rounded-lg text-[11px] font-bold transition-all flex items-center justify-center gap-1", messageType === 'ai_offer' ? "bg-white text-orange-600 shadow-sm" : "text-gray-500")}
+        >
+          {isGenerating ? <Loader2 size={12} className="animate-spin" /> : <Sparkles size={12} />}
+          AI Offer
+        </button>
+        <button
+          onClick={() => handleAIGenerate('followup')}
+          disabled={isGenerating}
+          className={cn("flex-1 py-2 rounded-lg text-[11px] font-bold transition-all flex items-center justify-center gap-1", messageType === 'ai_followup' ? "bg-white text-pink-600 shadow-sm" : "text-gray-500")}
+        >
+          {isGenerating ? <Loader2 size={12} className="animate-spin" /> : <Sparkles size={12} />}
+          AI Follow-up
+        </button>
+      </div>
+
+      {/* Message Input */}
+      <div className="bg-white p-4 rounded-2xl border border-gray-100 space-y-2">
+        <textarea
+          value={message}
+          onChange={e => setMessage(e.target.value)}
+          placeholder={messageType === 'custom' ? "Type your message..." : "AI generating... or type custom message"}
+          className="w-full text-sm bg-gray-50 p-3 rounded-xl border border-gray-50 text-gray-700 h-32 focus:ring-2 focus:ring-green-100 focus:border-green-300 focus:outline-none transition-all outline-none resize-none"
+        />
+        <p className="text-[10px] text-gray-400 px-1">{message.length} chars • {selectedGroup?.contactIds.length} recipients</p>
+      </div>
+
+      {/* Recipients Preview */}
+      <div className="bg-white rounded-2xl border border-gray-100 p-4">
+        <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2">Recipients</p>
+        <div className="flex flex-wrap gap-1.5">
+          {customers
+            .filter(c => selectedGroup?.contactIds.includes(c.id))
+            .slice(0, 12)
+            .map(c => (
+              <span key={c.id} className="text-[10px] bg-green-50 text-green-700 px-2 py-1 rounded-lg font-medium border border-green-100">
+                {c.name}
+              </span>
+            ))
+          }
+          {(selectedGroup?.contactIds.length || 0) > 12 && (
+            <span className="text-[10px] bg-gray-100 text-gray-500 px-2 py-1 rounded-lg font-medium">
+              +{(selectedGroup?.contactIds.length || 0) - 12} more
+            </span>
+          )}
+        </div>
+      </div>
+
+      {/* Start Broadcast */}
+      <button
         onClick={startBroadcast}
-        disabled={selected.length === 0 || !message.trim()}
+        disabled={!message.trim() || !selectedGroup || selectedGroup.contactIds.length === 0}
         className={cn(
-          "w-full py-4 rounded-2xl font-bold flex items-center justify-center space-x-3 shadow-lg transition-all active:scale-[0.98]",
-          selected.length > 0 && message.trim()
+          "w-full py-4 rounded-2xl font-bold flex items-center justify-center gap-3 shadow-lg transition-all active:scale-[0.98]",
+          message.trim() && selectedGroup && selectedGroup.contactIds.length > 0
             ? "bg-[#25D366] text-white shadow-green-200 hover:bg-[#20BD5A]"
             : "bg-gray-200 text-gray-400 cursor-not-allowed shadow-none"
         )}
       >
         {WHATSAPP_SVG}
-        <span>Start Broadcast to {selected.length} Contact{selected.length !== 1 ? 's' : ''}</span>
+        <span>Send to {selectedGroup?.contactIds.length} Contacts</span>
         <ExternalLink size={16} />
       </button>
     </div>
