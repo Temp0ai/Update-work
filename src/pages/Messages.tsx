@@ -150,15 +150,21 @@ function WhatsAppBulkTab({ onBulkQueue }: { onBulkQueue: (q: BulkQueue) => void 
 
   const createGroup = () => {
     if (!newGroupName.trim()) return;
+    const newId = Date.now().toString(36) + Math.random().toString(36).substring(2, 6);
     const group: ContactGroup = {
-      id: Date.now().toString(36) + Math.random().toString(36).substring(2, 6),
+      id: newId,
       name: newGroupName.trim(),
       contactIds: [],
       createdAt: Date.now()
     };
-    saveGroups([...groups, group]);
+    const updated = [...groups, group];
+    saveGroups(updated);
     setNewGroupName('');
     setShowNewGroup(false);
+    // Open manage contacts view for the new group
+    setManageGroupId(newId);
+    setActiveView('manage');
+    setSearch('');
   };
 
   const renameGroup = (groupId: string) => {
