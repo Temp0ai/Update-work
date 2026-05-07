@@ -47,5 +47,11 @@
 	</array>
 	<key>UIViewControllerBasedStatusBarAppearance</key>
 	<true/>
+	<key>NSContactsUsageDescription</key>
+	<string>Meraki CRM needs access to your contacts to sync them into customer groups for WhatsApp outreach.</string>
+	<key>NSCameraUsageDescription</key>
+	<string>Meraki CRM needs camera access to take photos for product messages.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>Meraki CRM needs photo library access to attach images to WhatsApp messages.</string>
 </dict>
 </plist>
