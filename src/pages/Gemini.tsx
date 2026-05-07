@@ -105,6 +105,7 @@ export default function Gemini() {
             ref={fileInputRef} 
             onChange={handleFileChange} 
             accept="image/*" 
+            capture="environment"
             className="hidden" 
           />
         </motion.div>

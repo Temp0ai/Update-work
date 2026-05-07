@@ -68,7 +68,7 @@ export default function CustomerDetail() {
   };
 
   const handleDeletePurchase = (pId: string) => {
-    if (window.confirm('Delete this purchase record?')) {
+    if (window.confirm('Delete this sale record?')) {
       storage.deletePurchase(pId);
       setPurchases(prev => prev.filter(p => p.id !== pId));
     }
@@ -253,7 +253,7 @@ export default function CustomerDetail() {
         <div className="flex items-center justify-between">
           <h3 className="font-bold flex items-center">
             <ShoppingBag size={18} className="mr-2 text-pink-600" />
-            Purchase History
+            Sales History
           </h3>
           <button 
             onClick={() => setShowAddPurchase(true)}
@@ -280,7 +280,7 @@ export default function CustomerDetail() {
             </div>
           ))}
           {purchases.length === 0 && (
-            <p className="text-center py-8 text-gray-400 text-sm italic">No purchases recorded yet</p>
+            <p className="text-center py-8 text-gray-400 text-sm italic">No sales recorded yet</p>
           )}
         </div>
       </section>
@@ -293,7 +293,7 @@ export default function CustomerDetail() {
             className="bg-white w-full max-w-md rounded-t-3xl sm:rounded-3xl p-6 shadow-2xl"
           >
             <div className="flex justify-between items-center mb-6">
-              <h3 className="text-xl font-bold">Add Purchase</h3>
+              <h3 className="text-xl font-bold">Add Sale</h3>
               <button onClick={() => setShowAddPurchase(false)} className="text-gray-400 p-2">✕</button>
             </div>
             
@@ -325,7 +325,7 @@ export default function CustomerDetail() {
               
               <div className="pt-4">
                 <button type="submit" className="w-full py-4 bg-pink-600 text-white rounded-2xl font-bold shadow-lg shadow-pink-100 active:scale-95 transition-all outline-none">
-                  Save Purchase
+                  Save Sale
                 </button>
               </div>
             </form>

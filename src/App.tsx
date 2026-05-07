@@ -25,7 +25,7 @@ function BottomNav() {
   const navItems = [
     { path: '/', icon: LayoutDashboard, label: 'Home' },
     { path: '/customers', icon: Users, label: 'Customers' },
-    { path: '/history', icon: History, label: 'History' },
+    { path: '/history', icon: History, label: 'Sales' },
     { path: '/gemini', icon: Sparkles, label: 'Gemini' },
     { path: '/messages', icon: MessageSquare, label: 'Outreach' },
     { path: '/settings', icon: SettingsIcon, label: 'Profile' },
