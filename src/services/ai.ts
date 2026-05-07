@@ -13,7 +13,7 @@ function getAI(): GoogleGenAI {
 
 export async function generatePersonalizedMessage(
   customer: Customer,
-  type: 'birthday' | 'followup' | 'offer',
+  type: 'birthday' | 'followup' | 'offer' | 'new_collection',
   recentPurchases: Purchase[],
   options: {
     tone?: 'casual' | 'formal' | 'enthusiastic';
@@ -51,6 +51,7 @@ export async function generatePersonalizedMessage(
     - Mention specific items from their purchase history if available.
     - Mention the slogan "${settings.slogan}" naturally if appropriate for an Enthusiastic tone.
     - For follow-ups, mention "new seasonal arrivals" or "exclusive collection previews".
+    - For new_collection, highlight the exciting new arrivals, fabrics, styles, and invite them for a preview. Make it feel exclusive and urgent.
     - For birthdays, offer a "special boutique treat" or "birthday discount".
     - If they haven't visited in a while, invite them for a "personal styling session".
     - Language style: ${tone}

@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { MessageCircle, Gift, Clock, Sparkles, Send, Check, Loader2, Users, Search, ChevronDown, X, Download, ExternalLink, FileSpreadsheet, Pencil, Plus, ArrowLeft, Trash2, Smartphone } from 'lucide-react';
+import React, { useState, useEffect, useRef } from 'react';
+import { MessageCircle, Gift, Clock, Sparkles, Send, Check, Loader2, Users, Search, ChevronDown, X, Download, ExternalLink, FileSpreadsheet, Pencil, Plus, ArrowLeft, Trash2, Smartphone, Camera, ImageIcon, Paperclip, Tag, ShoppingBag } from 'lucide-react';
 import { storage } from '../services/storage';
 import { Customer, Purchase } from '../types';
 import { getWhatsAppLink, getWhatsAppAppLink, cn, generateId } from '../lib/utils';
@@ -126,7 +126,7 @@ function WhatsAppBulkTab({ onBulkQueue }: { onBulkQueue: (q: BulkQueue) => void 
   const [activeView, setActiveView] = useState<'groups' | 'manage' | 'compose'>('groups');
   const [selectedGroup, setSelectedGroup] = useState<ContactGroup | null>(null);
   const [message, setMessage] = useState('');
-  const [messageType, setMessageType] = useState<'custom' | 'ai_offer' | 'ai_followup'>('custom');
+  const [messageType, setMessageType] = useState<'custom' | 'ai_offer' | 'ai_followup' | 'ai_new_collection'>('custom');
   const [isGenerating, setIsGenerating] = useState(false);
   const [search, setSearch] = useState('');
   const [editingGroup, setEditingGroup] = useState<string | null>(null);
@@ -134,6 +134,10 @@ function WhatsAppBulkTab({ onBulkQueue }: { onBulkQueue: (q: BulkQueue) => void 
   const [showNewGroup, setShowNewGroup] = useState(false);
   const [newGroupName, setNewGroupName] = useState('');
   const [manageGroupId, setManageGroupId] = useState<string | null>(null);
+  const [attachedPhoto, setAttachedPhoto] = useState<string | null>(null); // base64 data URL
+  const [attachedPhotoName, setAttachedPhotoName] = useState<string>('');
+  const cameraInputRef = useRef<HTMLInputElement>(null);
+  const galleryInputRef = useRef<HTMLInputElement>(null);
 
   const GROUPS_KEY = 'meraki_contact_groups';
 
@@ -146,6 +150,52 @@ function WhatsAppBulkTab({ onBulkQueue }: { onBulkQueue: (q: BulkQueue) => void 
   const saveGroups = (updated: ContactGroup[]) => {
     setGroups(updated);
     localStorage.setItem(GROUPS_KEY, JSON.stringify(updated));
+  };
+
+  const handlePhotoSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      setAttachedPhoto(ev.target?.result as string);
+      setAttachedPhotoName(file.name);
+    };
+    reader.readAsDataURL(file);
+    // Reset input so same file can be selected again
+    e.target.value = '';
+  };
+
+  const removePhoto = () => {
+    setAttachedPhoto(null);
+    setAttachedPhotoName('');
+  };
+
+  const shareToWhatsApp = async (phone: string, text: string, photoBase64?: string | null) => {
+    let cleanPhone = phone.replace(/\D/g, '');
+    if (cleanPhone.length === 10) cleanPhone = '91' + cleanPhone;
+
+    if (photoBase64 && navigator.share) {
+      try {
+        // Convert base64 to File for Web Share API
+        const res = await fetch(photoBase64);
+        const blob = await res.blob();
+        const ext = photoBase64.includes('png') ? 'png' : 'jpg';
+        const file = new File([blob], `offer.${ext}`, { type: blob.type });
+        await navigator.share({
+          title: 'Check this out!',
+          text: text,
+          files: [file],
+        });
+        return true;
+      } catch (err: any) {
+        if (err.name === 'AbortError') return false; // user cancelled
+        console.warn('Share API failed, falling back to text-only:', err);
+      }
+    }
+    // Fallback: text-only wa.me link
+    const link = getWhatsAppAppLink(phone, text);
+    window.open(link, '_blank');
+    return true;
   };
 
   const createGroup = () => {
@@ -282,19 +332,22 @@ function WhatsAppBulkTab({ onBulkQueue }: { onBulkQueue: (q: BulkQueue) => void 
       customers: groupCustomers,
       currentIndex: 0,
       message: message.trim(),
-      isPaused: false
+      isPaused: false,
+      photo: attachedPhoto
     });
   };
 
-  const handleAIGenerate = async (type: 'offer' | 'followup') => {
+  const handleAIGenerate = async (type: 'offer' | 'followup' | 'new_collection') => {
     setIsGenerating(true);
     try {
-      const settings = storage.getSettings();
       const sampleCustomer = customers[0];
       if (!sampleCustomer) { setIsGenerating(false); return; }
-      const msg = await generatePersonalizedMessage(sampleCustomer, type === 'offer' ? 'offer' : 'followup', [], { tone: 'enthusiastic', length: 'medium' });
+      const aiType = type === 'new_collection' ? 'new_collection' : type;
+      const msg = await generatePersonalizedMessage(sampleCustomer, aiType, [], { tone: 'enthusiastic', length: 'medium' });
       setMessage(msg);
-      setMessageType(type === 'offer' ? 'ai_offer' : 'ai_followup');
+      if (type === 'offer') setMessageType('ai_offer');
+      else if (type === 'new_collection') setMessageType('ai_new_collection');
+      else setMessageType('ai_followup');
     } catch (e) {
       console.error(e);
     } finally {
@@ -548,7 +601,7 @@ function WhatsAppBulkTab({ onBulkQueue }: { onBulkQueue: (q: BulkQueue) => void 
     <div className="space-y-4">
       {/* Back */}
       <div className="flex items-center gap-3">
-        <button onClick={() => { setActiveView('groups'); setSelectedGroup(null); setMessage(''); }} className="p-2 text-gray-400 hover:text-gray-600">
+        <button onClick={() => { setActiveView('groups'); setSelectedGroup(null); setMessage(''); setAttachedPhoto(null); setAttachedPhotoName(''); }} className="p-2 text-gray-400 hover:text-gray-600">
           <ArrowLeft size={20} />
         </button>
         <div>
@@ -557,30 +610,74 @@ function WhatsAppBulkTab({ onBulkQueue }: { onBulkQueue: (q: BulkQueue) => void 
         </div>
       </div>
 
-      {/* Message Type Toggle */}
-      <div className="flex gap-1 bg-gray-100 p-1 rounded-xl">
-        <button
-          onClick={() => setMessageType('custom')}
-          className={cn("flex-1 py-2 rounded-lg text-[11px] font-bold transition-all", messageType === 'custom' ? "bg-white text-gray-900 shadow-sm" : "text-gray-500")}
-        >
-          Custom Message
-        </button>
-        <button
-          onClick={() => handleAIGenerate('offer')}
-          disabled={isGenerating}
-          className={cn("flex-1 py-2 rounded-lg text-[11px] font-bold transition-all flex items-center justify-center gap-1", messageType === 'ai_offer' ? "bg-white text-orange-600 shadow-sm" : "text-gray-500")}
-        >
-          {isGenerating ? <Loader2 size={12} className="animate-spin" /> : <Sparkles size={12} />}
-          AI Offer
-        </button>
-        <button
-          onClick={() => handleAIGenerate('followup')}
-          disabled={isGenerating}
-          className={cn("flex-1 py-2 rounded-lg text-[11px] font-bold transition-all flex items-center justify-center gap-1", messageType === 'ai_followup' ? "bg-white text-pink-600 shadow-sm" : "text-gray-500")}
-        >
-          {isGenerating ? <Loader2 size={12} className="animate-spin" /> : <Sparkles size={12} />}
-          AI Follow-up
-        </button>
+      {/* AI Template Buttons */}
+      <div className="space-y-2">
+        <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest px-1">AI Message Templates</p>
+        <div className="grid grid-cols-2 gap-2">
+          <button
+            onClick={() => handleAIGenerate('offer')}
+            disabled={isGenerating}
+            className={cn(
+              "flex items-center gap-2 p-3 rounded-xl border text-left transition-all",
+              messageType === 'ai_offer'
+                ? "bg-orange-50 border-orange-200 text-orange-700"
+                : "bg-white border-gray-100 text-gray-600 hover:border-orange-200"
+            )}
+          >
+            {isGenerating && messageType === 'ai_offer' ? <Loader2 size={16} className="animate-spin text-orange-500" /> : <Tag size={16} className="text-orange-500" />}
+            <div>
+              <p className="text-xs font-bold">🏷️ Offers & Discounts</p>
+              <p className="text-[9px] text-gray-400">Sale, discount, promo</p>
+            </div>
+          </button>
+          <button
+            onClick={() => handleAIGenerate('new_collection')}
+            disabled={isGenerating}
+            className={cn(
+              "flex items-center gap-2 p-3 rounded-xl border text-left transition-all",
+              messageType === 'ai_new_collection'
+                ? "bg-purple-50 border-purple-200 text-purple-700"
+                : "bg-white border-gray-100 text-gray-600 hover:border-purple-200"
+            )}
+          >
+            {isGenerating && messageType === 'ai_new_collection' ? <Loader2 size={16} className="animate-spin text-purple-500" /> : <ShoppingBag size={16} className="text-purple-500" />}
+            <div>
+              <p className="text-xs font-bold">👗 New Collection</p>
+              <p className="text-[9px] text-gray-400">New arrivals, launch</p>
+            </div>
+          </button>
+          <button
+            onClick={() => handleAIGenerate('followup')}
+            disabled={isGenerating}
+            className={cn(
+              "flex items-center gap-2 p-3 rounded-xl border text-left transition-all",
+              messageType === 'ai_followup'
+                ? "bg-pink-50 border-pink-200 text-pink-700"
+                : "bg-white border-gray-100 text-gray-600 hover:border-pink-200"
+            )}
+          >
+            {isGenerating && messageType === 'ai_followup' ? <Loader2 size={16} className="animate-spin text-pink-500" /> : <Clock size={16} className="text-pink-500" />}
+            <div>
+              <p className="text-xs font-bold">💝 Follow-up</p>
+              <p className="text-[9px] text-gray-400">Re-engage inactive</p>
+            </div>
+          </button>
+          <button
+            onClick={() => setMessageType('custom')}
+            className={cn(
+              "flex items-center gap-2 p-3 rounded-xl border text-left transition-all",
+              messageType === 'custom'
+                ? "bg-gray-50 border-gray-300 text-gray-800"
+                : "bg-white border-gray-100 text-gray-600 hover:border-gray-300"
+            )}
+          >
+            <Pencil size={16} className="text-gray-500" />
+            <div>
+              <p className="text-xs font-bold">✏️ Custom</p>
+              <p className="text-[9px] text-gray-400">Write your own</p>
+            </div>
+          </button>
+        </div>
       </div>
 
       {/* Message Input */}
@@ -588,10 +685,68 @@ function WhatsAppBulkTab({ onBulkQueue }: { onBulkQueue: (q: BulkQueue) => void 
         <textarea
           value={message}
           onChange={e => setMessage(e.target.value)}
-          placeholder={messageType === 'custom' ? "Type your message..." : "AI generating... or type custom message"}
+          placeholder={messageType === 'custom' ? "Type your message..." : "AI generating... or edit this message"}
           className="w-full text-sm bg-gray-50 p-3 rounded-xl border border-gray-50 text-gray-700 h-32 focus:ring-2 focus:ring-green-100 focus:border-green-300 focus:outline-none transition-all outline-none resize-none"
         />
         <p className="text-[10px] text-gray-400 px-1">{message.length} chars • {selectedGroup?.contactIds.length} recipients</p>
+      </div>
+
+      {/* Photo Attachment */}
+      <div className="bg-white p-4 rounded-2xl border border-gray-100 space-y-3">
+        <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest px-1">Attach Photo (Optional)</p>
+        
+        {attachedPhoto ? (
+          <div className="relative">
+            <img src={attachedPhoto} alt="Attached" className="w-full h-48 object-cover rounded-xl border border-gray-100" />
+            <button
+              onClick={removePhoto}
+              className="absolute top-2 right-2 w-7 h-7 bg-black/60 rounded-full flex items-center justify-center text-white hover:bg-black/80 transition-colors"
+            >
+              <X size={14} />
+            </button>
+            <p className="text-[10px] text-gray-400 mt-1 truncate">{attachedPhotoName}</p>
+          </div>
+        ) : (
+          <div className="flex gap-2">
+            <button
+              onClick={() => cameraInputRef.current?.click()}
+              className="flex-1 flex items-center justify-center gap-2 py-4 bg-gray-50 border border-dashed border-gray-200 rounded-xl text-gray-500 hover:border-green-300 hover:bg-green-50/50 transition-all"
+            >
+              <Camera size={18} />
+              <span className="text-xs font-bold">Camera</span>
+            </button>
+            <button
+              onClick={() => galleryInputRef.current?.click()}
+              className="flex-1 flex items-center justify-center gap-2 py-4 bg-gray-50 border border-dashed border-gray-200 rounded-xl text-gray-500 hover:border-green-300 hover:bg-green-50/50 transition-all"
+            >
+              <ImageIcon size={18} />
+              <span className="text-xs font-bold">Gallery</span>
+            </button>
+          </div>
+        )}
+
+        {/* Hidden file inputs */}
+        <input
+          ref={cameraInputRef}
+          type="file"
+          accept="image/*"
+          capture="environment"
+          onChange={handlePhotoSelect}
+          className="hidden"
+        />
+        <input
+          ref={galleryInputRef}
+          type="file"
+          accept="image/*"
+          onChange={handlePhotoSelect}
+          className="hidden"
+        />
+
+        {attachedPhoto && (
+          <p className="text-[10px] text-green-600 flex items-center gap-1 px-1">
+            <Check size={10} /> Photo will be shared with each message via WhatsApp
+          </p>
+        )}
       </div>
 
       {/* Recipients Preview */}
@@ -627,7 +782,7 @@ function WhatsAppBulkTab({ onBulkQueue }: { onBulkQueue: (q: BulkQueue) => void 
         )}
       >
         {WHATSAPP_SVG}
-        <span>Send to {selectedGroup?.contactIds.length} Contacts</span>
+        <span>Send to {selectedGroup?.contactIds.length} Contacts{attachedPhoto ? ' 📎' : ''}</span>
         <ExternalLink size={16} />
       </button>
     </div>
@@ -963,6 +1118,7 @@ interface BulkQueue {
   currentIndex: number;
   message: string;
   isPaused: boolean;
+  photo?: string | null; // base64 data URL
 }
 
 function BulkSenderModal({ queue, onClose, onUpdate }: { 
@@ -986,8 +1142,27 @@ function BulkSenderModal({ queue, onClose, onUpdate }: {
       if (countdown > 0) {
         timer = setTimeout(() => setCountdown(countdown - 1), 1000);
       } else {
-        const link = getWhatsAppAppLink(currentCustomer.phone, queue.message);
-        window.open(link, '_blank');
+        // If photo attached, try Share API first (opens WhatsApp share sheet)
+        if (queue.photo) {
+          (async () => {
+            try {
+              const res = await fetch(queue.photo!);
+              const blob = await res.blob();
+              const ext = queue.photo!.includes('png') ? 'png' : 'jpg';
+              const file = new File([blob], `offer.${ext}`, { type: blob.type });
+              if (navigator.share) {
+                await navigator.share({ title: '', text: queue.message, files: [file] });
+              } else {
+                // Fallback: text-only
+                window.open(getWhatsAppAppLink(currentCustomer.phone, queue.message), '_blank');
+              }
+            } catch {
+              // User cancelled or error — skip to next
+            }
+          })();
+        } else {
+          window.open(getWhatsAppAppLink(currentCustomer.phone, queue.message), '_blank');
+        }
         
         if (queue.currentIndex < queue.customers.length - 1) {
           onUpdate({ ...queue, currentIndex: queue.currentIndex + 1 });
@@ -1044,14 +1219,22 @@ function BulkSenderModal({ queue, onClose, onUpdate }: {
           </div>
 
           {queue.currentIndex < queue.customers.length && (
-            <div className="bg-green-50 py-3 px-4 rounded-2xl flex items-center justify-center space-x-2">
-              {countdown > 0 ? (
-                <>
-                  <Clock size={18} className="text-green-600 animate-pulse" />
-                  <span className="font-bold text-green-700">Next in {countdown}s...</span>
-                </>
-              ) : (
-                <span className="font-bold text-green-700">Opening WhatsApp...</span>
+            <div className="space-y-2">
+              <div className="bg-green-50 py-3 px-4 rounded-2xl flex items-center justify-center space-x-2">
+                {countdown > 0 ? (
+                  <>
+                    <Clock size={18} className="text-green-600 animate-pulse" />
+                    <span className="font-bold text-green-700">Next in {countdown}s...</span>
+                  </>
+                ) : (
+                  <span className="font-bold text-green-700">{queue.photo ? 'Share via WhatsApp...' : 'Opening WhatsApp...'}</span>
+                )}
+              </div>
+              {queue.photo && (
+                <div className="flex items-center justify-center gap-2 text-[10px] text-purple-600 font-medium">
+                  <ImageIcon size={12} />
+                  <span>Photo attached — will open share sheet</span>
+                </div>
               )}
             </div>
           )}
