@@ -5,6 +5,7 @@ export interface Customer {
   birthday?: string; // YYYY-MM-DD
   notes?: string;
   createdAt: number;
+  source?: 'created' | 'contact'; // 'created' = manually added, 'contact' = selected from phone contacts
 }
 
 export interface Purchase {
