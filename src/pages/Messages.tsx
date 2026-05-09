@@ -532,15 +532,23 @@ function WhatsAppBulkTab({ onBulkQueue }: { onBulkQueue: (q: BulkQueue) => void 
             <p className="text-[10px] text-gray-400">{currentManageGroup.contactIds.length}/100 in group • {customers.length} total contacts</p>
           </div>
           <button
+            onClick={() => { setActiveView('groups'); setManageGroupId(null); }}
+            className="px-4 py-2 bg-[#25D366] text-white rounded-xl text-xs font-bold shadow-lg shadow-green-100 active:scale-95 transition-all"
+          >
+            Save
+          </button>
+        </div>
+
+        <div className="flex items-center gap-2">
+          <button
             onClick={() => addAllToGroup(currentManageGroup.id)}
             disabled={currentManageGroup.contactIds.length >= 100}
             className="px-3 py-1.5 bg-green-50 text-green-700 rounded-lg text-[10px] font-bold disabled:opacity-40"
           >
             + Add All
           </button>
+          <p className="text-[10px] text-gray-400">Tap contacts to add/remove</p>
         </div>
-
-        <p className="text-[10px] text-gray-400 px-1">Tap contacts to add/remove from this group. Sync phone contacts from the groups list first.</p>
 
         {/* Progress Bar */}
         <div className="bg-gray-100 rounded-full h-2 overflow-hidden">
