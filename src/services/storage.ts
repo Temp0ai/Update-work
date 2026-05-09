@@ -24,8 +24,8 @@ export const storage = {
   getCustomers: (): Customer[] => {
     const data = localStorage.getItem(STORAGE_KEYS.CUSTOMERS);
     const customers: Customer[] = data ? JSON.parse(data) : [];
-    // Backward compat: default source to 'created' for old entries
-    return customers.map(c => ({ ...c, source: c.source || 'created' }));
+    // Backward compat: default source to 'created' and hidden to false for old entries
+    return customers.map(c => ({ ...c, source: c.source || 'created', hidden: c.hidden ?? false }));
   },
   saveCustomer: (customer: Customer) => {
     const customers = storage.getCustomers();

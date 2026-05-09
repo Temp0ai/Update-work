@@ -6,6 +6,7 @@ export interface Customer {
   notes?: string;
   createdAt: number;
   source?: 'created' | 'contact'; // 'created' = manually added, 'contact' = selected from phone contacts
+  hidden?: boolean; // true = hidden from customer tab (still in storage)
 }
 
 export interface Purchase {

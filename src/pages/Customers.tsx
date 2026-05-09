@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, Search, UserPlus, Phone, Users, Trash2, Check, BookUser, Loader2, X } from 'lucide-react';
+import { Plus, Search, UserPlus, Phone, Users, Trash2, Check, BookUser, Loader2, X, EyeOff, Eye, Filter } from 'lucide-react';
 import { storage } from '../services/storage';
 import { Customer } from '../types';
 import { useNavigate } from 'react-router-dom';
@@ -14,11 +14,14 @@ interface PhoneContact {
   selected: boolean;
 }
 
+type FilterMode = 'visible' | 'hidden' | 'all';
+
 export default function Customers() {
   const navigate = useNavigate();
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [showAddForm, setShowAddForm] = useState(false);
   const [search, setSearch] = useState('');
+  const [filterMode, setFilterMode] = useState<FilterMode>('visible');
   const [isDeleteMode, setIsDeleteMode] = useState(false);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [isDeleting, setIsDeleting] = useState(false);
@@ -45,7 +48,20 @@ export default function Customers() {
     setCustomers(storage.getCustomers());
   }, []);
 
-  // Open contact picker — fetch phone contacts and show selection modal
+  // Toggle hide/unhide a customer
+  const toggleHide = (e: React.MouseEvent, id: string) => {
+    e.stopPropagation();
+    const customer = customers.find(c => c.id === id);
+    if (!customer) return;
+    const updated = { ...customer, hidden: !customer.hidden };
+    storage.saveCustomer(updated);
+    setCustomers(storage.getCustomers());
+    setToastMessage(updated.hidden ? 'Hidden from list' : 'Visible in list');
+    setShowToast(true);
+    setTimeout(() => setShowToast(false), 2000);
+  };
+
+  // Open contact picker
   const handleOpenContactPicker = async () => {
     setIsLoadingContacts(true);
     setContactSearch('');
@@ -64,7 +80,6 @@ export default function Customers() {
         }
       });
 
-      // Filter out contacts already in the customer list
       const existingPhones = new Set(
         storage.getCustomers().map(c => c.phone.replace(/\D/g, '').slice(-10))
       );
@@ -77,8 +92,6 @@ export default function Customers() {
 
         const cleanPhone = phone.replace(/\D/g, '');
         const last10 = cleanPhone.slice(-10);
-
-        // Skip contacts already in customer list
         if (existingPhones.has(last10)) continue;
 
         contacts.push({
@@ -110,7 +123,6 @@ export default function Customers() {
     if (selected.length === 0) return;
 
     setIsImporting(true);
-
     const existingPhones = new Set(
       storage.getCustomers().map(c => c.phone.replace(/\D/g, '').slice(-10))
     );
@@ -119,10 +131,8 @@ export default function Customers() {
     for (const contact of selected) {
       const cleanPhone = contact.phone.replace(/\D/g, '');
       const last10 = cleanPhone.slice(-10);
-
       if (existingPhones.has(last10)) continue;
 
-      // Auto-format: add +91 if 10 digits
       let formattedPhone = contact.phone;
       if (cleanPhone.length === 10) {
         formattedPhone = `+91${cleanPhone}`;
@@ -135,7 +145,8 @@ export default function Customers() {
         birthday: '',
         notes: '',
         createdAt: Date.now(),
-        source: 'contact'
+        source: 'contact',
+        hidden: false
       };
 
       storage.saveCustomer(newCustomer);
@@ -166,7 +177,8 @@ export default function Customers() {
       ...formData,
       id: generateId(),
       createdAt: Date.now(),
-      source: 'created'
+      source: 'created',
+      hidden: false
     };
     storage.saveCustomer(newCustomer);
     setCustomers(prev => [...prev, newCustomer]);
@@ -199,25 +211,31 @@ export default function Customers() {
 
   const handleBulkDelete = () => {
     if (selectedIds.length === 0) return;
-
     setIsDeleting(true);
     storage.deleteCustomersBulk(selectedIds);
-
     const remaining = storage.getCustomers();
     setCustomers(remaining);
     setSelectedIds([]);
     setIsDeleteMode(false);
     setIsDeleting(false);
     setConfirmDelete(false);
-
     setShowToast(true);
     setTimeout(() => setShowToast(false), 3000);
   };
 
-  const filtered = customers.filter(c =>
-    c.name.toLowerCase().includes(search.toLowerCase()) ||
-    c.phone.includes(search)
-  );
+  // Filter customers by visibility + search
+  const filtered = customers.filter(c => {
+    // Visibility filter
+    if (filterMode === 'visible' && c.hidden) return false;
+    if (filterMode === 'hidden' && !c.hidden) return false;
+    // Search filter
+    const matchName = c.name.toLowerCase().includes(search.toLowerCase());
+    const matchPhone = c.phone.includes(search);
+    return matchName || matchPhone;
+  });
+
+  const hiddenCount = customers.filter(c => c.hidden).length;
+  const visibleCount = customers.filter(c => !c.hidden).length;
 
   return (
     <div className="space-y-4">
@@ -260,6 +278,7 @@ export default function Customers() {
         </div>
       </div>
 
+      {/* Search */}
       <div className="relative">
         <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
         <input
@@ -271,6 +290,38 @@ export default function Customers() {
         />
       </div>
 
+      {/* Filter Tabs */}
+      <div className="flex items-center space-x-1 bg-gray-100 rounded-xl p-1">
+        <button
+          onClick={() => setFilterMode('visible')}
+          className={cn(
+            "flex-1 py-2 rounded-lg text-xs font-bold transition-all",
+            filterMode === 'visible' ? "bg-white text-pink-600 shadow-sm" : "text-gray-400"
+          )}
+        >
+          Visible ({visibleCount})
+        </button>
+        <button
+          onClick={() => setFilterMode('hidden')}
+          className={cn(
+            "flex-1 py-2 rounded-lg text-xs font-bold transition-all",
+            filterMode === 'hidden' ? "bg-white text-orange-600 shadow-sm" : "text-gray-400"
+          )}
+        >
+          Hidden ({hiddenCount})
+        </button>
+        <button
+          onClick={() => setFilterMode('all')}
+          className={cn(
+            "flex-1 py-2 rounded-lg text-xs font-bold transition-all",
+            filterMode === 'all' ? "bg-white text-gray-700 shadow-sm" : "text-gray-400"
+          )}
+        >
+          All ({customers.length})
+        </button>
+      </div>
+
+      {/* Bulk Delete Bar */}
       {isDeleteMode && selectedIds.length > 0 && (
         <motion.button
           initial={{ opacity: 0, scale: 0.9 }}
@@ -338,7 +389,6 @@ export default function Customers() {
                 <h3 className="text-xl font-bold text-gray-900">Delete Customer?</h3>
                 <p className="text-sm text-gray-500">This will permanently remove the customer and all related purchase records.</p>
               </div>
-
               <div className="grid grid-cols-2 gap-3">
                 <button
                   onClick={() => setConfirmDeleteId(null)}
@@ -366,7 +416,8 @@ export default function Customers() {
             onClick={(e) => isDeleteMode ? toggleSelect(e, customer.id) : navigate(`/customers/${customer.id}`)}
             className={cn(
               "p-4 rounded-2xl border transition-all active:scale-[0.98] group relative cursor-pointer",
-              selectedIds.includes(customer.id) ? "bg-red-50 border-red-200" : "bg-white border-gray-100 hover:border-pink-100 shadow-sm shadow-gray-100/50"
+              customer.hidden ? "bg-orange-50/50 border-orange-100" : "",
+              selectedIds.includes(customer.id) ? "bg-red-50 border-red-200" : !customer.hidden ? "bg-white border-gray-100 hover:border-pink-100 shadow-sm shadow-gray-100/50" : ""
             )}
           >
             <div className="flex justify-between items-center">
@@ -379,15 +430,26 @@ export default function Customers() {
                     {selectedIds.includes(customer.id) && <Check size={14} className="text-white" strokeWidth={3} />}
                   </div>
                 ) : (
-                  <div className="w-10 h-10 rounded-full bg-pink-50 flex items-center justify-center text-pink-600 font-bold shrink-0">
+                  <div className={cn(
+                    "w-10 h-10 rounded-full flex items-center justify-center font-bold shrink-0",
+                    customer.hidden ? "bg-orange-100 text-orange-400" : "bg-pink-50 text-pink-600"
+                  )}>
                     {customer.name.charAt(0)}
                   </div>
                 )}
                 <div>
                   <div className="flex items-center space-x-2">
-                    <p className="font-bold text-gray-900 group-hover:text-pink-600 transition-colors uppercase text-sm tracking-tight">{customer.name}</p>
+                    <p className={cn(
+                      "font-bold transition-colors uppercase text-sm tracking-tight",
+                      customer.hidden ? "text-gray-400" : "text-gray-900 group-hover:text-pink-600"
+                    )}>{customer.name}</p>
                     {customer.source === 'contact' && (
                       <span className="text-[9px] font-bold text-blue-500 bg-blue-50 px-1.5 py-0.5 rounded-full uppercase tracking-wider">Contact</span>
+                    )}
+                    {customer.hidden && (
+                      <span className="text-[9px] font-bold text-orange-500 bg-orange-100 px-1.5 py-0.5 rounded-full uppercase tracking-wider flex items-center gap-0.5">
+                        <EyeOff size={8} /> Hidden
+                      </span>
                     )}
                   </div>
                   <div className="flex items-center space-x-2 mt-0.5">
@@ -398,15 +460,27 @@ export default function Customers() {
               </div>
 
               {!isDeleteMode && (
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    handleDelete(e, customer.id);
-                  }}
-                  className="p-3 text-gray-300 hover:text-red-500 hover:bg-red-50 rounded-xl transition-all"
-                >
-                  <Trash2 size={18} />
-                </button>
+                <div className="flex items-center space-x-1">
+                  <button
+                    onClick={(e) => toggleHide(e, customer.id)}
+                    className={cn(
+                      "p-2.5 rounded-xl transition-all",
+                      customer.hidden ? "text-orange-400 hover:text-orange-600 hover:bg-orange-50" : "text-gray-300 hover:text-gray-500 hover:bg-gray-50"
+                    )}
+                    title={customer.hidden ? "Show in list" : "Hide from list"}
+                  >
+                    {customer.hidden ? <Eye size={16} /> : <EyeOff size={16} />}
+                  </button>
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleDelete(e, customer.id);
+                    }}
+                    className="p-2.5 text-gray-300 hover:text-red-500 hover:bg-red-50 rounded-xl transition-all"
+                  >
+                    <Trash2 size={16} />
+                  </button>
+                </div>
               )}
             </div>
           </div>
@@ -415,10 +489,14 @@ export default function Customers() {
         {filtered.length === 0 && (
           <div className="text-center py-12">
             <div className="w-16 h-16 bg-gray-50 rounded-full flex items-center justify-center mx-auto mb-4">
-              <Users className="text-gray-300" size={32} />
+              {filterMode === 'hidden' ? <EyeOff className="text-gray-300" size={32} /> : <Users className="text-gray-300" size={32} />}
             </div>
-            <p className="text-gray-400 font-medium tracking-tight">No customers found</p>
-            <p className="text-gray-300 text-xs mt-1">Create one or select from contacts</p>
+            <p className="text-gray-400 font-medium tracking-tight">
+              {filterMode === 'hidden' ? 'No hidden customers' : 'No customers found'}
+            </p>
+            <p className="text-gray-300 text-xs mt-1">
+              {filterMode === 'hidden' ? 'Hide contacts using the eye icon' : 'Create one or select from contacts'}
+            </p>
           </div>
         )}
       </div>
@@ -435,12 +513,10 @@ export default function Customers() {
               <h3 className="text-xl font-bold">Add Customer</h3>
               <button onClick={() => setShowAddForm(false)} className="text-gray-400 p-2">✕</button>
             </div>
-
             <form onSubmit={handleAdd} className="space-y-4">
               <Input label="Full Name" value={formData.name} onChange={v => setFormData({...formData, name: v})} required />
               <Input label="Phone Number" value={formData.phone} onChange={v => setFormData({...formData, phone: v})} required type="tel" />
               <Input label="Birthday" value={formData.birthday} onChange={v => setFormData({...formData, birthday: v})} type="date" />
-
               <div className="pt-4">
                 <button type="submit" className="w-full py-4 bg-pink-600 text-white rounded-2xl font-bold shadow-lg shadow-pink-200 active:scale-95 transition-all outline-none">
                   Create Customer
@@ -461,7 +537,6 @@ export default function Customers() {
               exit={{ y: '100%' }}
               className="bg-white w-full max-w-md h-[85vh] rounded-t-3xl sm:rounded-3xl shadow-2xl flex flex-col"
             >
-              {/* Header */}
               <div className="p-4 border-b border-gray-100 flex items-center justify-between shrink-0">
                 <div>
                   <h3 className="text-lg font-bold">Select Contacts</h3>
@@ -478,7 +553,6 @@ export default function Customers() {
                 </button>
               </div>
 
-              {/* Search */}
               <div className="p-3 shrink-0">
                 <div className="relative">
                   <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
@@ -492,7 +566,6 @@ export default function Customers() {
                 </div>
               </div>
 
-              {/* Contact List */}
               <div className="flex-1 overflow-y-auto px-3">
                 {filteredContacts.length === 0 ? (
                   <div className="text-center py-12 text-gray-400">
@@ -530,7 +603,6 @@ export default function Customers() {
                 )}
               </div>
 
-              {/* Import Button */}
               {selectedContactCount > 0 && (
                 <div className="p-4 border-t border-gray-100 shrink-0">
                   <button
