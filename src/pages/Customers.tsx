@@ -61,8 +61,12 @@ export default function Customers() {
     setTimeout(() => setShowToast(false), 2000);
   };
 
+  // Track whether to restore add form after contact picker closes
+  const [restoreAddForm, setRestoreAddForm] = useState(false);
+
   // Open contact picker — non-blocking with batched processing
-  const handleOpenContactPicker = async () => {
+  const handleOpenContactPicker = async (fromAddForm = false) => {
+    setRestoreAddForm(fromAddForm);
     setContactSearch('');
     setPhoneContacts([]);
     setShowContactPicker(true); // Show modal immediately with loading state
@@ -124,6 +128,7 @@ export default function Customers() {
       console.error('Contact fetch error:', error);
       alert('Failed to load contacts. Make sure contact permission is granted.');
       setShowContactPicker(false);
+      if (restoreAddForm) setShowAddForm(true);
     } finally {
       setIsLoadingContacts(false);
     }
@@ -523,7 +528,7 @@ export default function Customers() {
             {/* Select from Contacts Button */}
             <button
               type="button"
-              onClick={() => { setShowAddForm(false); handleOpenContactPicker(); }}
+              onClick={() => { setShowAddForm(false); handleOpenContactPicker(true); }}
               className="w-full mb-4 py-3.5 bg-blue-50 text-blue-600 rounded-2xl font-bold text-sm flex items-center justify-center gap-2 border border-blue-200 hover:bg-blue-100 transition-all active:scale-[0.98]"
             >
               <BookUser size={18} />
@@ -569,14 +574,14 @@ export default function Customers() {
                   </p>
                 </div>
                 <button
-                  onClick={() => { setShowContactPicker(false); setPhoneContacts([]); }}
+                  onClick={() => { setShowContactPicker(false); setPhoneContacts([]); if (restoreAddForm) setShowAddForm(true); }}
                   className="p-2 text-gray-400 hover:text-gray-600"
                 >
                   <X size={22} />
                 </button>
               </div>
 
-              <div className="p-3 shrink-0">
+              <div className="p-3 shrink-0 space-y-2">
                 <div className="relative">
                   <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
                   <input
@@ -587,6 +592,13 @@ export default function Customers() {
                     onChange={(e) => setContactSearch(e.target.value)}
                   />
                 </div>
+                <button
+                  onClick={() => { setShowContactPicker(false); setPhoneContacts([]); setShowAddForm(true); }}
+                  className="w-full py-2.5 bg-gray-50 text-gray-600 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 hover:bg-gray-100 transition-all border border-gray-100"
+                >
+                  <Plus size={14} />
+                  Create New Customer Manually
+                </button>
               </div>
 
               <div className="flex-1 overflow-y-auto px-3">
