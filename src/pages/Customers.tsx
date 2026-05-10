@@ -12,6 +12,7 @@ interface PhoneContact {
   name: string;
   phone: string;
   selected: boolean;
+  _uid: string; // guaranteed unique identifier for React keys + selection
 }
 
 type FilterMode = 'visible' | 'hidden' | 'all';
@@ -108,11 +109,13 @@ export default function Customers() {
           const last10 = cleanPhone.slice(-10);
           if (existingPhones.has(last10)) continue;
 
+          const uid = contact.contactId || `${name.trim()}-${last10}-${processed.length}`;
           processed.push({
             contactId: contact.contactId || '',
             name: name.trim(),
             phone: phone.trim(),
-            selected: false
+            selected: false,
+            _uid: uid
           });
         }
 
@@ -134,9 +137,9 @@ export default function Customers() {
     }
   };
 
-  const toggleContactSelection = (contactId: string) => {
+  const toggleContactSelection = (uid: string) => {
     setPhoneContacts(prev => prev.map(c =>
-      c.contactId === contactId ? { ...c, selected: !c.selected } : c
+      c._uid === uid ? { ...c, selected: !c.selected } : c
     ));
   };
 
@@ -145,45 +148,55 @@ export default function Customers() {
     if (selected.length === 0) return;
 
     setIsImporting(true);
-    const existingPhones = new Set(
-      storage.getCustomers().map(c => c.phone.replace(/\D/g, '').slice(-10))
-    );
 
-    let imported = 0;
-    for (const contact of selected) {
-      const cleanPhone = contact.phone.replace(/\D/g, '');
-      const last10 = cleanPhone.slice(-10);
-      if (existingPhones.has(last10)) continue;
+    try {
+      const existingPhones = new Set(
+        storage.getCustomers().map(c => c.phone.replace(/\D/g, '').slice(-10))
+      );
 
-      let formattedPhone = contact.phone;
-      if (cleanPhone.length === 10) {
-        formattedPhone = `+91${cleanPhone}`;
+      let imported = 0;
+      for (const contact of selected) {
+        const cleanPhone = contact.phone.replace(/\D/g, '');
+        const last10 = cleanPhone.slice(-10);
+        if (existingPhones.has(last10)) continue;
+
+        let formattedPhone = contact.phone;
+        if (cleanPhone.length === 10) {
+          formattedPhone = `+91${cleanPhone}`;
+        } else if (cleanPhone.length === 12 && cleanPhone.startsWith('91')) {
+          formattedPhone = `+${cleanPhone}`;
+        }
+
+        const newCustomer: Customer = {
+          id: generateId(),
+          name: contact.name,
+          phone: formattedPhone,
+          birthday: '',
+          notes: '',
+          createdAt: Date.now(),
+          source: 'contact',
+          hidden: false
+        };
+
+        storage.saveCustomer(newCustomer);
+        existingPhones.add(last10);
+        imported++;
       }
 
-      const newCustomer: Customer = {
-        id: generateId(),
-        name: contact.name,
-        phone: formattedPhone,
-        birthday: '',
-        notes: '',
-        createdAt: Date.now(),
-        source: 'contact',
-        hidden: false
-      };
+      setCustomers(storage.getCustomers());
+      setShowContactPicker(false);
+      setPhoneContacts([]);
+      setRestoreAddForm(false);
 
-      storage.saveCustomer(newCustomer);
-      existingPhones.add(last10);
-      imported++;
+      setToastMessage(`${imported} contact${imported !== 1 ? 's' : ''} added`);
+      setShowToast(true);
+      setTimeout(() => setShowToast(false), 3000);
+    } catch (error) {
+      console.error('Import error:', error);
+      alert('Failed to save contacts. Please try again.');
+    } finally {
+      setIsImporting(false);
     }
-
-    setCustomers(storage.getCustomers());
-    setShowContactPicker(false);
-    setPhoneContacts([]);
-    setIsImporting(false);
-
-    setToastMessage(`${imported} contact${imported !== 1 ? 's' : ''} added`);
-    setShowToast(true);
-    setTimeout(() => setShowToast(false), 3000);
   };
 
   const filteredContacts = phoneContacts.filter(c =>
@@ -618,8 +631,8 @@ export default function Customers() {
                   <div className="space-y-1">
                     {filteredContacts.map(contact => (
                       <button
-                        key={contact.contactId}
-                        onClick={() => toggleContactSelection(contact.contactId)}
+                        key={contact._uid}
+                        onClick={() => toggleContactSelection(contact._uid)}
                         className={cn(
                           "w-full flex items-center space-x-3 p-3 rounded-xl transition-all text-left",
                           contact.selected ? "bg-pink-50 border border-pink-200" : "hover:bg-gray-50 border border-transparent"
