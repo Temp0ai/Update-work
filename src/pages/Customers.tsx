@@ -598,12 +598,12 @@ export default function Customers() {
       {/* Contact Picker Modal */}
       <AnimatePresence>
         {showContactPicker && (
-          <div className="fixed inset-0 bg-black/50 flex items-end sm:items-center justify-center z-50 backdrop-blur-sm">
+          <div className="fixed inset-0 bg-black/50 flex items-end sm:items-center justify-center z-50 backdrop-blur-sm pb-16">
             <motion.div
               initial={{ y: '100%' }}
               animate={{ y: 0 }}
               exit={{ y: '100%' }}
-              className="bg-white w-full max-w-md h-[85vh] rounded-t-3xl sm:rounded-3xl shadow-2xl flex flex-col"
+              className="bg-white w-full max-w-md h-[80vh] rounded-t-3xl sm:rounded-3xl shadow-2xl flex flex-col"
             >
               <div className="p-4 border-b border-gray-100 flex items-center justify-between shrink-0">
                 <div>
