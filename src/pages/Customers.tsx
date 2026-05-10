@@ -89,6 +89,11 @@ export default function Customers() {
         }
       });
 
+      console.log('[Contacts] Raw result:', result.contacts.length, 'contacts');
+      if (result.contacts.length > 0) {
+        console.log('[Contacts] First contact sample:', JSON.stringify(result.contacts[0]));
+      }
+
       const existingPhones = new Set(
         storage.getCustomers().map(c => c.phone.replace(/\D/g, '').slice(-10))
       );
@@ -127,6 +132,12 @@ export default function Customers() {
       }
 
       setPhoneContacts(processed);
+      console.log('[Contacts] Processed:', processed.length, 'contacts available for import');
+      if (processed.length === 0 && allContacts.length > 0) {
+        alert(`Found ${allContacts.length} contacts on your phone, but all are already in your customer list.`);
+      } else if (processed.length === 0) {
+        alert('No contacts with name and phone number found on your device.');
+      }
     } catch (error) {
       console.error('Contact fetch error:', error);
       alert('Failed to load contacts. Make sure contact permission is granted.');
@@ -145,7 +156,11 @@ export default function Customers() {
 
   const handleImportSelected = () => {
     const selected = phoneContacts.filter(c => c.selected);
-    if (selected.length === 0) return;
+    console.log('[Import] Selected contacts:', selected.length, selected);
+    if (selected.length === 0) {
+      alert('No contacts selected. Please tap on contacts to select them first.');
+      return;
+    }
 
     setIsImporting(true);
 
@@ -153,12 +168,18 @@ export default function Customers() {
       const existingPhones = new Set(
         storage.getCustomers().map(c => c.phone.replace(/\D/g, '').slice(-10))
       );
+      console.log('[Import] Existing phones:', existingPhones.size);
 
       let imported = 0;
+      let skipped = 0;
       for (const contact of selected) {
         const cleanPhone = contact.phone.replace(/\D/g, '');
         const last10 = cleanPhone.slice(-10);
-        if (existingPhones.has(last10)) continue;
+        if (existingPhones.has(last10)) {
+          console.log('[Import] Skipping duplicate:', contact.name, contact.phone);
+          skipped++;
+          continue;
+        }
 
         let formattedPhone = contact.phone;
         if (cleanPhone.length === 10) {
@@ -178,22 +199,28 @@ export default function Customers() {
           hidden: false
         };
 
+        console.log('[Import] Saving:', newCustomer.name, newCustomer.phone);
         storage.saveCustomer(newCustomer);
         existingPhones.add(last10);
         imported++;
       }
 
+      console.log('[Import] Done. Imported:', imported, 'Skipped:', skipped);
       setCustomers(storage.getCustomers());
       setShowContactPicker(false);
       setPhoneContacts([]);
       setRestoreAddForm(false);
 
-      setToastMessage(`${imported} contact${imported !== 1 ? 's' : ''} added`);
-      setShowToast(true);
-      setTimeout(() => setShowToast(false), 3000);
+      if (imported > 0) {
+        setToastMessage(`${imported} contact${imported !== 1 ? 's' : ''} added`);
+        setShowToast(true);
+        setTimeout(() => setShowToast(false), 3000);
+      } else {
+        alert(`${skipped} contact${skipped !== 1 ? 's' : ''} already in your list.`);
+      }
     } catch (error) {
-      console.error('Import error:', error);
-      alert('Failed to save contacts. Please try again.');
+      console.error('[Import] Error:', error);
+      alert('Failed to save contacts: ' + (error instanceof Error ? error.message : String(error)));
     } finally {
       setIsImporting(false);
     }
