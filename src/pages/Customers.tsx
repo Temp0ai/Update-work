@@ -288,8 +288,9 @@ export default function Customers() {
   // Filter customers by visibility + search
   const filtered = customers.filter(c => {
     // Visibility filter
-    if (filterMode === 'visible' && c.hidden) return false;
+    if (filterMode === 'visible' && (c.hidden || (!c.source || c.source === 'phone'))) return false;
     if (filterMode === 'hidden' && !c.hidden) return false;
+    // "All" shows everything, "visible" only shows created/imported contacts
     // Search filter
     const matchName = c.name.toLowerCase().includes(search.toLowerCase());
     const matchPhone = c.phone.includes(search);
@@ -297,7 +298,7 @@ export default function Customers() {
   });
 
   const hiddenCount = customers.filter(c => c.hidden).length;
-  const visibleCount = customers.filter(c => !c.hidden).length;
+  const visibleCount = customers.filter(c => !c.hidden && (c.source === 'created' || c.source === 'contact')).length;
 
   return (
     <div className="space-y-4">
