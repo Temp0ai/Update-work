@@ -243,17 +243,6 @@ export default function Customers() {
         <h2 className="text-2xl font-bold tracking-tight text-gray-900">Customers</h2>
         <div className="flex items-center space-x-2">
           <button
-            onClick={handleOpenContactPicker}
-            disabled={isLoadingContacts}
-            className={cn(
-              "p-2 rounded-full transition-all border",
-              isLoadingContacts ? "bg-blue-100 border-blue-300 text-blue-600" : "bg-white border-gray-100 text-gray-400 hover:text-blue-500 hover:border-blue-200"
-            )}
-            title="Select from Contacts"
-          >
-            {isLoadingContacts ? <Loader2 size={20} className="animate-spin" /> : <BookUser size={20} />}
-          </button>
-          <button
             onClick={() => {
               setIsDeleteMode(!isDeleteMode);
               if (isDeleteMode) {
@@ -513,11 +502,28 @@ export default function Customers() {
               <h3 className="text-xl font-bold">Add Customer</h3>
               <button onClick={() => setShowAddForm(false)} className="text-gray-400 p-2">✕</button>
             </div>
+
+            {/* Select from Contacts Button */}
+            <button
+              type="button"
+              onClick={() => { setShowAddForm(false); handleOpenContactPicker(); }}
+              className="w-full mb-4 py-3.5 bg-blue-50 text-blue-600 rounded-2xl font-bold text-sm flex items-center justify-center gap-2 border border-blue-200 hover:bg-blue-100 transition-all active:scale-[0.98]"
+            >
+              <BookUser size={18} />
+              Select from Contacts
+            </button>
+
+            <div className="flex items-center gap-3 mb-4">
+              <div className="flex-1 h-px bg-gray-100" />
+              <span className="text-[10px] font-bold text-gray-300 uppercase tracking-widest">or create manually</span>
+              <div className="flex-1 h-px bg-gray-100" />
+            </div>
+
             <form onSubmit={handleAdd} className="space-y-4">
               <Input label="Full Name" value={formData.name} onChange={v => setFormData({...formData, name: v})} required />
               <Input label="Phone Number" value={formData.phone} onChange={v => setFormData({...formData, phone: v})} required type="tel" />
               <Input label="Birthday" value={formData.birthday} onChange={v => setFormData({...formData, birthday: v})} type="date" />
-              <div className="pt-4">
+              <div className="pt-2">
                 <button type="submit" className="w-full py-4 bg-pink-600 text-white rounded-2xl font-bold shadow-lg shadow-pink-200 active:scale-95 transition-all outline-none">
                   Create Customer
                 </button>
