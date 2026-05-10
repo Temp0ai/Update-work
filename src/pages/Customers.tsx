@@ -61,15 +61,19 @@ export default function Customers() {
     setTimeout(() => setShowToast(false), 2000);
   };
 
-  // Open contact picker
+  // Open contact picker — non-blocking with batched processing
   const handleOpenContactPicker = async () => {
-    setIsLoadingContacts(true);
     setContactSearch('');
+    setPhoneContacts([]);
+    setShowContactPicker(true); // Show modal immediately with loading state
+    setIsLoadingContacts(true);
+
     try {
       const permission = await Contacts.requestPermissions();
       if (permission.contacts !== 'granted') {
         alert('Contact permission is required to select contacts.');
         setIsLoadingContacts(false);
+        setShowContactPicker(false);
         return;
       }
 
@@ -84,29 +88,42 @@ export default function Customers() {
         storage.getCustomers().map(c => c.phone.replace(/\D/g, '').slice(-10))
       );
 
-      const contacts: PhoneContact[] = [];
-      for (const contact of result.contacts) {
-        const name = contact.name?.display || '';
-        const phone = contact.phones?.[0]?.number || '';
-        if (!name || !phone) continue;
+      // Process contacts in batches to avoid UI freeze
+      const allContacts = result.contacts;
+      const BATCH_SIZE = 50;
+      const processed: PhoneContact[] = [];
 
-        const cleanPhone = phone.replace(/\D/g, '');
-        const last10 = cleanPhone.slice(-10);
-        if (existingPhones.has(last10)) continue;
+      for (let i = 0; i < allContacts.length; i += BATCH_SIZE) {
+        const batch = allContacts.slice(i, i + BATCH_SIZE);
+        for (const contact of batch) {
+          const name = contact.name?.display || '';
+          const phone = contact.phones?.[0]?.number || '';
+          if (!name || !phone) continue;
 
-        contacts.push({
-          contactId: contact.contactId || '',
-          name: name.trim(),
-          phone: phone.trim(),
-          selected: false
-        });
+          const cleanPhone = phone.replace(/\D/g, '');
+          const last10 = cleanPhone.slice(-10);
+          if (existingPhones.has(last10)) continue;
+
+          processed.push({
+            contactId: contact.contactId || '',
+            name: name.trim(),
+            phone: phone.trim(),
+            selected: false
+          });
+        }
+
+        // Update UI after each batch so it stays responsive
+        if (i + BATCH_SIZE < allContacts.length) {
+          setPhoneContacts([...processed]);
+          await new Promise(resolve => setTimeout(resolve, 0)); // yield to UI thread
+        }
       }
 
-      setPhoneContacts(contacts);
-      setShowContactPicker(true);
+      setPhoneContacts(processed);
     } catch (error) {
       console.error('Contact fetch error:', error);
       alert('Failed to load contacts. Make sure contact permission is granted.');
+      setShowContactPicker(false);
     } finally {
       setIsLoadingContacts(false);
     }
@@ -573,7 +590,13 @@ export default function Customers() {
               </div>
 
               <div className="flex-1 overflow-y-auto px-3">
-                {filteredContacts.length === 0 ? (
+                {isLoadingContacts ? (
+                  <div className="text-center py-12 text-gray-400">
+                    <Loader2 size={32} className="mx-auto mb-3 text-blue-400 animate-spin" />
+                    <p className="text-sm font-medium">Loading contacts...</p>
+                    <p className="text-xs text-gray-300 mt-1">{phoneContacts.length} loaded so far</p>
+                  </div>
+                ) : filteredContacts.length === 0 ? (
                   <div className="text-center py-12 text-gray-400">
                     <Users size={32} className="mx-auto mb-3 text-gray-300" />
                     <p className="text-sm">No contacts available</p>
